@@ -1,0 +1,6 @@
+{
+  "name": "Ceylon Bites & Sizzle - Modern Sri Lankan BYOB & Dining",
+  "description": "A premium modern Sri Lankan BYOB restaurant customer web application with QR table ordering, sizzling devilled bites, artisan kottu, budget meal optimizer, order tracking, and loyalty rewards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
