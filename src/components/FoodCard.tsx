@@ -26,6 +26,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food }) => {
       ];
 
   const [selectedPortion, setSelectedPortion] = useState<ItemPortion>(portions[0]);
+  const [justAdded, setJustAdded] = useState(false);
 
   // Find if this specific item + portion is in the cart
   const portionCartItem = cart.find(
@@ -49,6 +50,8 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food }) => {
       openFoodModal(food);
     } else {
       addToCart(food, 1, food.spiceLevel, '', [], selectedPortion);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1200);
     }
   };
 
@@ -175,11 +178,16 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food }) => {
           </div>
 
           {/* Quick Action Button */}
-          {totalInCart > 0 ? (
+          {justAdded ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-black font-extrabold text-[10px] uppercase tracking-widest shadow animate-in zoom-in-75 duration-200">
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
+              <span>Added!</span>
+            </div>
+          ) : totalInCart > 0 ? (
             <div className="flex items-center gap-1 bg-[#c5a059] text-black p-1 shadow-md">
               <button
                 onClick={handleDecrement}
-                className="w-6 h-6 flex items-center justify-center bg-black/10 hover:bg-black/25 text-black font-bold active:scale-90 transition-all"
+                className="w-6 h-6 flex items-center justify-center bg-black/10 hover:bg-black/25 text-black font-bold active:scale-90 transition-all cursor-pointer"
                 aria-label="Decrease quantity"
               >
                 <Minus className="w-3 h-3" />
@@ -189,7 +197,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food }) => {
               </span>
               <button
                 onClick={handleIncrement}
-                className="w-6 h-6 flex items-center justify-center bg-black/10 hover:bg-black/25 text-black font-bold active:scale-90 transition-all"
+                className="w-6 h-6 flex items-center justify-center bg-black/10 hover:bg-black/25 text-black font-bold active:scale-90 transition-all cursor-pointer"
                 aria-label="Increase quantity"
               >
                 <Plus className="w-3 h-3" />
@@ -198,7 +206,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food }) => {
           ) : (
             <button
               onClick={handleQuickAdd}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#181818] hover:bg-[#c5a059] hover:text-black text-gray-300 font-bold text-[10px] uppercase tracking-widest transition-all duration-200 border border-white/10 hover:border-[#c5a059] active:scale-95 shadow"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#181818] hover:bg-[#c5a059] hover:text-black text-gray-300 font-bold text-[10px] uppercase tracking-widest transition-all duration-200 border border-white/10 hover:border-[#c5a059] active:scale-95 shadow cursor-pointer"
             >
               <Plus className="w-3 h-3" />
               <span>Add</span>

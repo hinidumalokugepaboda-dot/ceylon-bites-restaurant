@@ -260,8 +260,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
-  // Navigation & filtering
-  const [activeCategory, setActiveCategory] = useState<MenuCategory>('all');
+  // Navigation & Page State
+  const [activeCategory, setActiveCategory] = useState<MenuCategory>('kottu');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'spicy' | 'vegetarian' | 'popular' | 'chef-special'>('all');
 

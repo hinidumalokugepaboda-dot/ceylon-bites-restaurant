@@ -1,7 +1,6 @@
 import { FoodItem, ItemPortion, MenuCategory, SpecialOffer, CustomerReview, RewardVoucher } from '../types';
 
 export const CATEGORIES: { id: MenuCategory; name: string; iconName: string; description: string }[] = [
-  { id: 'all', name: 'All Bites', iconName: 'Flame', description: 'Explore our full evening menu' },
   { id: 'kottu', name: 'Kottu', iconName: 'Utensils', description: 'Chopped godamba roti tossed on sizzling iron plates' },
   { id: 'devilled', name: 'Devilled', iconName: 'Flame', description: 'Sizzling sweet, spicy & caramelized Sri Lankan bites' },
   { id: 'seafood', name: 'Seafood', iconName: 'Fish', description: 'Crispy cuttlefish, chilli garlic prawns & fresh catches' },
@@ -396,7 +395,7 @@ const BASE_FOOD_ITEMS: Omit<FoodItem, 'portions'>[] = [
     description: 'Lightly seasoned crispy squid rings tossed with coarse sea salt and cracked black pepper, served with spicy garlic mayo dip.',
     price: 1200,
     image: '/assets/images/foods/fried-calamari.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80',
+    fallbackImage: 'https://images.unsplash.com/photo-1675377668870-baf9b35763f9?auto=format&fit=crop&w=1200&q=85',
     spiceLevel: 'mild',
     spicy: false,
     vegetarian: false,
@@ -432,7 +431,7 @@ const BASE_FOOD_ITEMS: Omit<FoodItem, 'portions'>[] = [
     description: 'Crispy spiced whole fish fillets rubbed with roasted Ceylon chili and lime marinade, topped with fried onions and green chilies.',
     price: 1100,
     image: '/assets/images/foods/spicy-fried-fish.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80',
+    fallbackImage: 'https://images.unsplash.com/photo-1765265432611-17d3f2da2d5d?auto=format&fit=crop&w=1200&q=85',
     spiceLevel: 'spicy',
     spicy: true,
     vegetarian: false,
@@ -450,7 +449,7 @@ const BASE_FOOD_ITEMS: Omit<FoodItem, 'portions'>[] = [
     description: 'Pan-fried fish steaks tossed with fiery green chilies, shallots, garlic, soy sauce, and spicy Sri Lankan pepper seasoning.',
     price: 1050,
     image: '/assets/images/foods/chilli-fish.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80',
+    fallbackImage: 'https://images.unsplash.com/photo-1537516803400-bf9d09ae3d2f?auto=format&fit=crop&w=1200&q=85',
     spiceLevel: 'spicy',
     spicy: true,
     vegetarian: false,

@@ -1,35 +1,43 @@
 import React from 'react';
 import { QrCode, Search, CheckCircle2, PartyPopper } from 'lucide-react';
 
-export const HowItWorks: React.FC = () => {
+interface HowItWorksProps {
+  onNavigate?: (sectionId: string) => void;
+}
+
+export const HowItWorks: React.FC<HowItWorksProps> = ({ onNavigate }) => {
   const steps = [
     {
       step: '01',
       title: 'SCAN QR',
       description: 'Point your smartphone camera at the table QR code to open your digital menu instantly.',
       icon: QrCode,
-      highlight: 'Instant Access'
+      highlight: 'Instant Access',
+      action: () => onNavigate?.('menu')
     },
     {
       step: '02',
       title: 'EXPLORE MENU',
       description: 'Browse kottu, sizzling devilled dishes, seafood platters, or use our smart budget optimizer.',
       icon: Search,
-      highlight: 'Full Flavours'
+      highlight: 'Full Flavours',
+      action: () => onNavigate?.('menu')
     },
     {
       step: '03',
       title: 'PLACE ORDER',
       description: 'Customize spice levels, add chef notes, apply loyalty points, and send directly to the wok kitchen.',
       icon: CheckCircle2,
-      highlight: 'Direct to Kitchen'
+      highlight: 'Direct to Kitchen',
+      action: () => onNavigate?.('menu')
     },
     {
       step: '04',
       title: 'ENJOY & UNWIND',
       description: 'Savour fresh sizzling dishes, enjoy your drinks, and track your order preparation in real time.',
       icon: PartyPopper,
-      highlight: 'Good Times'
+      highlight: 'Good Times',
+      action: () => onNavigate?.('tracking')
     }
   ];
 
@@ -57,7 +65,8 @@ export const HowItWorks: React.FC = () => {
               <div
                 key={item.step}
                 id={`how-it-works-step-${index + 1}`}
-                className="relative bg-[#111111] border border-white/5 p-7 hover:border-[#c5a059]/50 transition-all duration-300 group hover:-translate-y-1 text-left"
+                onClick={item.action}
+                className="relative bg-[#111111] border border-white/5 p-7 hover:border-[#c5a059]/50 transition-all duration-300 group hover:-translate-y-1 text-left cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-6">
                   <span className="text-3xl font-serif italic text-gray-600 group-hover:text-[#c5a059] transition-colors">

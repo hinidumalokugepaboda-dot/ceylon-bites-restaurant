@@ -14,12 +14,43 @@ import { useRestaurant } from '../context/RestaurantContext';
 import { FoodImage } from './common/FoodImage';
 
 interface HeroProps {
-  onExploreMenu: () => void;
-  onOpenBudget: () => void;
+  onNavigate?: (sectionId: string) => void;
+  onExploreMenu?: () => void;
+  onOpenBudget?: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onExploreMenu, onOpenBudget }) => {
+export const Hero: React.FC<HeroProps> = ({ onNavigate, onExploreMenu, onOpenBudget }) => {
   const { tableNumber, setIsTableModalOpen, openFoodModal } = useRestaurant();
+
+  const handleOrderClick = () => {
+    if (onExploreMenu) {
+      onExploreMenu();
+    } else if (onNavigate) {
+      onNavigate('menu');
+    } else {
+      const element = document.getElementById('menu-section');
+      if (element) {
+        const yOffset = -70;
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const handleBudgetClick = () => {
+    if (onOpenBudget) {
+      onOpenBudget();
+    } else if (onNavigate) {
+      onNavigate('budget');
+    } else {
+      const element = document.getElementById('budget-optimizer-section');
+      if (element) {
+        const yOffset = -70;
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }
+  };
 
   return (
     <section className="relative overflow-hidden pt-6 pb-14 md:pt-10 md:pb-24 border-b border-white/10 bg-[#0a0a0a]">
@@ -84,8 +115,8 @@ export const Hero: React.FC<HeroProps> = ({ onExploreMenu, onOpenBudget }) => {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
               <button
                 id="btn-hero-order-now"
-                onClick={onExploreMenu}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 bg-[#c5a059] hover:bg-[#d6b26b] text-black text-[11px] uppercase tracking-[0.2em] font-bold shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-95"
+                onClick={handleOrderClick}
+                className="flex items-center justify-center gap-2 px-8 py-3.5 bg-[#c5a059] hover:bg-[#d6b26b] text-black text-[11px] uppercase tracking-[0.2em] font-bold shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
               >
                 <UtensilsCrossed className="w-4 h-4" />
                 <span>Order For Table {tableNumber}</span>
@@ -94,8 +125,8 @@ export const Hero: React.FC<HeroProps> = ({ onExploreMenu, onOpenBudget }) => {
 
               <button
                 id="btn-hero-budget"
-                onClick={onOpenBudget}
-                className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#141414] hover:bg-[#1a1a1a] border border-white/10 hover:border-[#c5a059]/40 text-gray-300 hover:text-white text-[11px] uppercase tracking-[0.15em] font-medium transition-all"
+                onClick={handleBudgetClick}
+                className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#141414] hover:bg-[#1a1a1a] border border-white/10 hover:border-[#c5a059]/40 text-gray-300 hover:text-white text-[11px] uppercase tracking-[0.15em] font-medium transition-all cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#c5a059]" />
                 Budget Meal Optimizer
@@ -136,8 +167,8 @@ export const Hero: React.FC<HeroProps> = ({ onExploreMenu, onOpenBudget }) => {
                     </p>
                   </div>
                   <button
-                    onClick={onExploreMenu}
-                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#d6b26b] text-black text-[10px] uppercase tracking-widest font-bold shadow transition-all"
+                    onClick={handleOrderClick}
+                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#d6b26b] text-black text-[10px] uppercase tracking-widest font-bold shadow transition-all cursor-pointer"
                   >
                     View Dish
                   </button>

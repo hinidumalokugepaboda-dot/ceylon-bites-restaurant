@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Flame, 
   ShoppingBag, 
@@ -34,6 +34,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navSearchOpen, setNavSearchOpen] = useState(false);
+  const [isCartBumping, setIsCartBumping] = useState(false);
+
+  // Trigger bounce animation whenever cart items count increases
+  useEffect(() => {
+    if (cartTotalCount > 0) {
+      setIsCartBumping(true);
+      const timer = setTimeout(() => setIsCartBumping(false), 700);
+      return () => clearTimeout(timer);
+    }
+  }, [cartTotalCount]);
 
   const handleNavClick = (sectionId: string) => {
     onNavigate(sectionId);
@@ -41,102 +51,125 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 md:h-20">
+    <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 w-full overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 md:h-20 gap-2 sm:gap-4">
           {/* Logo */}
           <div 
             id="brand-logo"
             onClick={() => handleNavClick('home')}
-            className="flex items-center gap-3 cursor-pointer group select-none"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group select-none shrink-0"
           >
-            <div className="w-10 h-10 md:w-11 md:h-11 rounded-full border border-[#c5a059]/40 p-0.5 shadow-md transition-all group-hover:border-[#c5a059]">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full border border-[#c5a059]/40 p-0.5 shadow-md transition-all group-hover:border-[#c5a059]">
               <div className="w-full h-full bg-[#141414] rounded-full flex items-center justify-center">
-                <Flame className="w-5 h-5 text-[#c5a059] group-hover:scale-110 transition-transform duration-300" />
+                <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-[#c5a059] group-hover:scale-110 transition-transform duration-300" />
               </div>
             </div>
             <div className="flex flex-col text-left">
-              <div className="flex items-center gap-2">
-                <span className="font-serif tracking-[0.18em] text-lg md:text-xl text-white font-bold">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-serif tracking-[0.15em] sm:tracking-[0.18em] text-base sm:text-lg md:text-xl text-white font-bold whitespace-nowrap">
                   CEYLON <span className="text-[#c5a059]">BITES</span>
                 </span>
-                <span className="text-[9px] uppercase font-bold tracking-[0.2em] px-2 py-0.5 border border-[#c5a059]/50 text-[#c5a059] bg-[#161616]">
+                <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-[0.2em] px-1.5 py-0.5 border border-[#c5a059]/50 text-[#c5a059] bg-[#161616]">
                   BYOB
                 </span>
               </div>
-              <p className="text-[9px] uppercase tracking-[0.3em] text-gray-500 hidden sm:inline font-medium">
-                Modern Sri Lankan Dining & Sizzlers
+              <p className="text-[9px] uppercase tracking-[0.25em] text-gray-500 hidden xl:inline font-medium">
+                Modern Sri Lankan Dining
               </p>
             </div>
           </div>
 
-          {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
+          {/* Desktop Nav Links (xl screen: full 7 links) */}
+          <nav className="hidden xl:flex items-center gap-1.5 shrink">
             <button
               id="nav-home"
               onClick={() => handleNavClick('home')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-medium text-gray-400 hover:text-white transition-all whitespace-nowrap"
             >
               Home
             </button>
             <button
               id="nav-menu"
               onClick={() => handleNavClick('menu')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-medium text-gray-400 hover:text-white transition-all whitespace-nowrap"
             >
-              Food Menu
+              Menu
             </button>
             <button
               id="nav-budget"
               onClick={() => handleNavClick('budget')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-semibold text-[#c5a059] hover:text-white transition-all flex items-center gap-1.5"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-semibold text-[#c5a059] hover:text-[#f0d48f] transition-all flex items-center gap-1 whitespace-nowrap"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#c5a059]" />
-              Budget Optimizer
+              <Sparkles className="w-3.5 h-3.5 text-[#c5a059] shrink-0" />
+              <span>Optimizer</span>
             </button>
             <button
               id="nav-offers"
               onClick={() => handleNavClick('offers')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1 whitespace-nowrap"
             >
-              <Percent className="w-3 h-3 text-[#c5a059]" />
-              Offers
+              <Percent className="w-3 h-3 text-[#c5a059] shrink-0" />
+              <span>Offers</span>
             </button>
             <button
               id="nav-loyalty"
               onClick={() => handleNavClick('loyalty')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-medium text-gray-400 hover:text-white transition-all flex items-center gap-1 whitespace-nowrap"
             >
-              <Award className="w-3.5 h-3.5 text-[#c5a059]" />
-              Loyalty (2,450 pts)
+              <Award className="w-3.5 h-3.5 text-[#c5a059] shrink-0" />
+              <span>Loyalty</span>
             </button>
             <button
               id="nav-about"
               onClick={() => handleNavClick('about')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-medium text-gray-400 hover:text-white transition-all whitespace-nowrap"
             >
-              About & BYOB
+              BYOB
             </button>
             <button
               id="nav-contact"
               onClick={() => handleNavClick('contact')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all"
+              className="px-2.5 py-1.5 text-xs uppercase tracking-[0.12em] font-medium text-gray-400 hover:text-white transition-all whitespace-nowrap"
             >
               Contact
             </button>
           </nav>
 
-          {/* Right Action Icons */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Medium Desktop Nav Links (lg to xl) */}
+          <nav className="hidden lg:flex xl:hidden items-center gap-1 shrink">
+            <button
+              onClick={() => handleNavClick('menu')}
+              className="px-2 py-1 text-xs uppercase tracking-wider font-medium text-gray-400 hover:text-white whitespace-nowrap"
+            >
+              Menu
+            </button>
+            <button
+              onClick={() => handleNavClick('budget')}
+              className="px-2 py-1 text-xs uppercase tracking-wider font-semibold text-[#c5a059] hover:text-[#f0d48f] whitespace-nowrap flex items-center gap-1"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Optimizer</span>
+            </button>
+            <button
+              onClick={() => handleNavClick('offers')}
+              className="px-2 py-1 text-xs uppercase tracking-wider font-medium text-gray-400 hover:text-white whitespace-nowrap"
+            >
+              Offers
+            </button>
+          </nav>
+
+          {/* Right Action Icons (Always visible & never clipped) */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Table Badge */}
             <button
               id="btn-table-badge"
               onClick={() => setIsTableModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#121212] hover:bg-[#1a1a1a] border border-white/10 hover:border-[#c5a059]/50 text-[10px] uppercase tracking-widest font-semibold text-gray-300 transition-all"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[#121212] hover:bg-[#1a1a1a] border border-white/10 hover:border-[#c5a059]/50 text-[10px] uppercase tracking-widest font-semibold text-gray-300 transition-all cursor-pointer"
               title="Click to change table or view QR status"
             >
               <QrCode className="w-3.5 h-3.5 text-[#c5a059]" />
-              <span>Table</span>
+              <span className="hidden sm:inline">Table</span>
               <span className="text-[#c5a059] font-bold">
                 #{tableNumber}
               </span>
@@ -149,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                 handleNavClick('menu');
                 setNavSearchOpen(!navSearchOpen);
               }}
-              className="p-2 text-gray-400 hover:text-white hover:bg-white/5 transition-all hidden sm:flex border border-white/5"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 transition-all hidden sm:flex border border-white/5 cursor-pointer"
               aria-label="Search food"
             >
               <Search className="w-4 h-4" />
@@ -165,36 +198,43 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                   setIsAuthModalOpen(true);
                 }
               }}
-              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 text-gray-300 hover:text-white hover:bg-white/5 border border-white/5 transition-all text-xs font-medium"
+              className="flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 text-gray-300 hover:text-white hover:bg-white/5 border border-white/5 transition-all text-xs font-medium cursor-pointer"
               aria-label="Account profile"
             >
               <User className="w-3.5 h-3.5 text-gray-400" />
-              <span className="hidden sm:inline truncate max-w-[90px] uppercase tracking-wider text-[10px]">
+              <span className="hidden md:inline truncate max-w-[80px] uppercase tracking-wider text-[10px]">
                 {customerUser.isLoggedIn ? customerUser.name.split(' ')[0] : 'Sign In'}
               </span>
             </button>
 
-            {/* Cart Button */}
+            {/* Cart Button with Animated Item Counter Badge */}
             <button
               id="btn-nav-cart"
               onClick={() => setIsCartOpen(true)}
-              className="relative flex items-center gap-2 bg-[#c5a059] hover:bg-[#d6b26b] text-black px-4 py-2 text-[10px] uppercase tracking-[0.2em] font-bold shadow-md transition-all transform active:scale-95"
+              className={`relative flex items-center gap-1.5 sm:gap-2 bg-[#c5a059] hover:bg-[#d6b26b] text-black px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-extrabold shadow-lg transition-all duration-300 transform active:scale-95 cursor-pointer shrink-0 ring-1 ring-[#c5a059]/40 ${
+                isCartBumping ? 'scale-110 ring-4 ring-[#c5a059]/80 shadow-[#c5a059]/50' : ''
+              }`}
               aria-label="View Cart"
             >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Cart</span>
-              {cartTotalCount > 0 && (
-                <span className="bg-black text-[#c5a059] font-bold text-[10px] px-1.5 py-0.2 rounded-full">
-                  {cartTotalCount}
-                </span>
-              )}
+              <ShoppingBag className={`w-4 h-4 text-black shrink-0 ${isCartBumping ? 'animate-bounce' : ''}`} />
+              <span className="font-extrabold hidden xs:inline">Cart</span>
+              <span
+                key={cartTotalCount}
+                className={`font-black text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 rounded-full flex items-center justify-center min-w-[20px] transition-transform duration-300 ${
+                  cartTotalCount > 0
+                    ? 'bg-black text-[#c5a059] border border-[#c5a059]/60 shadow-inner scale-100 animate-in zoom-in-50'
+                    : 'bg-black/20 text-black/70'
+                }`}
+              >
+                {cartTotalCount}
+              </span>
             </button>
 
             {/* Mobile Hamburger */}
             <button
               id="btn-mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 lg:hidden"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 lg:hidden cursor-pointer shrink-0"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <MenuIcon className="w-5 h-5" />}

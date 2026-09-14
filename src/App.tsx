@@ -81,7 +81,11 @@ export function App() {
           <OrderTracking />
         ) : (
           <>
-            <Hero onNavigate={handleNavigate} />
+            <Hero
+              onNavigate={handleNavigate}
+              onExploreMenu={() => handleNavigate('menu')}
+              onOpenBudget={() => handleNavigate('budget')}
+            />
             <ByobBanner />
             <HowItWorks onNavigate={handleNavigate} />
             <MenuSection />

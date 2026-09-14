@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { 
   Search, 
   X, 
@@ -6,8 +6,6 @@ import {
   Leaf, 
   Sparkles, 
   Award, 
-  ChevronLeft, 
-  ChevronRight,
   Filter
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
@@ -26,24 +24,14 @@ export const MenuSection: React.FC = () => {
     tableNumber
   } = useRestaurant();
 
-  const categoryScrollRef = useRef<HTMLDivElement>(null);
-
-  const scrollCategories = (direction: 'left' | 'right') => {
-    if (categoryScrollRef.current) {
-      const offset = direction === 'left' ? -200 : 200;
-      categoryScrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
-    }
-  };
-
   // Filtering Logic
   const filteredFoods = FOOD_ITEMS.filter((item) => {
-    // 1. Category Filter
-    if (activeCategory !== 'all' && item.category !== activeCategory) {
-      return false;
-    }
-
-    // 2. Search Query Filter
-    if (searchQuery.trim()) {
+    // 1. Category Filter (Strictly active category unless searching)
+    if (!searchQuery.trim()) {
+      if (item.category !== activeCategory) {
+        return false;
+      }
+    } else {
       const q = searchQuery.toLowerCase();
       const matchName = item.name.toLowerCase().includes(q);
       const matchDesc = item.description.toLowerCase().includes(q);
@@ -54,7 +42,7 @@ export const MenuSection: React.FC = () => {
       }
     }
 
-    // 3. Dietary / Trait Filter
+    // 2. Dietary / Trait Filter
     if (selectedFilter === 'spicy' && !item.spicy) return false;
     if (selectedFilter === 'vegetarian' && !item.vegetarian) return false;
     if (selectedFilter === 'popular' && !item.popular) return false;
@@ -116,47 +104,26 @@ export const MenuSection: React.FC = () => {
         </div>
 
         {/* Horizontal Category Navigation Tabs */}
-        <div className="relative">
-          {/* Scroll Buttons for Desktop */}
-          <button
-            onClick={() => scrollCategories('left')}
-            className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-7 h-7 bg-[#141414] border border-white/10 text-gray-300 hover:text-white hover:border-[#c5a059] items-center justify-center shadow-lg transition-all"
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => scrollCategories('right')}
-            className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-7 h-7 bg-[#141414] border border-white/10 text-gray-300 hover:text-white hover:border-[#c5a059] items-center justify-center shadow-lg transition-all"
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          <div
-            ref={categoryScrollRef}
-            className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-0.5 scroll-smooth select-none"
-          >
-            {CATEGORIES.map((cat) => {
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  id={`cat-tab-${cat.id}`}
-                  onClick={() => {
-                    setActiveCategory(cat.id);
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2.5 font-medium text-xs whitespace-nowrap uppercase tracking-[0.15em] transition-all duration-200 shrink-0 ${
-                    isActive
-                      ? 'bg-[#c5a059] text-black font-bold shadow-md'
-                      : 'bg-[#141414] hover:bg-[#1c1c1c] text-gray-300 border border-white/5 hover:border-white/20'
-                  }`}
-                >
-                  <span>{cat.name}</span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 select-none">
+          {CATEGORIES.map((cat) => {
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                id={`cat-tab-${cat.id}`}
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                }}
+                className={`flex items-center gap-2 px-4 py-2.5 font-medium text-xs whitespace-nowrap uppercase tracking-[0.15em] transition-all duration-200 shrink-0 ${
+                  isActive
+                    ? 'bg-[#c5a059] text-black font-bold shadow-md'
+                    : 'bg-[#141414] hover:bg-[#1c1c1c] text-gray-300 border border-white/5 hover:border-white/20'
+                }`}
+              >
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Secondary Filter Chips (Spicy, Veg, Popular, Chef Special) */}
@@ -192,22 +159,17 @@ export const MenuSection: React.FC = () => {
         </div>
 
         {/* Category Description Banner */}
-        {activeCategory !== 'all' && (
-          <div className="p-4 bg-[#111111] border border-white/5 text-left flex items-center justify-between text-xs">
-            <span className="text-gray-300 font-light">
-              <strong className="text-[#c5a059] uppercase tracking-wider font-semibold">
-                {CATEGORIES.find((c) => c.id === activeCategory)?.name}:
-              </strong>{' '}
-              {CATEGORIES.find((c) => c.id === activeCategory)?.description}
-            </span>
-            <button
-              onClick={() => setActiveCategory('all')}
-              className="text-[10px] uppercase tracking-widest text-[#c5a059] hover:underline shrink-0 ml-3 font-semibold"
-            >
-              Show All
-            </button>
-          </div>
-        )}
+        <div className="p-4 bg-[#111111] border border-white/5 text-left flex items-center justify-between text-xs">
+          <span className="text-gray-300 font-light">
+            <strong className="text-[#c5a059] uppercase tracking-wider font-semibold">
+              {CATEGORIES.find((c) => c.id === activeCategory)?.name}:
+            </strong>{' '}
+            {CATEGORIES.find((c) => c.id === activeCategory)?.description}
+          </span>
+          <span className="text-[10px] text-[#c5a059] uppercase tracking-widest font-semibold shrink-0 ml-3">
+            {filteredFoods.length} {filteredFoods.length === 1 ? 'Dish' : 'Dishes'}
+          </span>
+        </div>
 
         {/* Food Items Grid */}
         {filteredFoods.length > 0 ? (
@@ -231,12 +193,12 @@ export const MenuSection: React.FC = () => {
             <button
               onClick={() => {
                 setSearchQuery('');
-                setActiveCategory('all');
+                setActiveCategory('kottu');
                 setSelectedFilter('all');
               }}
               className="px-4 py-2 bg-[#c5a059] text-black text-[10px] uppercase tracking-widest font-bold hover:bg-[#d6b26b] transition-all shadow"
             >
-              Reset Filters & Show All
+              Reset Filters
             </button>
           </div>
         )}

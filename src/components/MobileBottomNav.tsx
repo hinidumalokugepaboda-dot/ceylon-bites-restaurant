@@ -10,10 +10,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onNavigate }) 
   const {
     activeView,
     setActiveView,
-    totalCartItemsCount,
+    cartTotalCount,
     finalCartTotal,
     setIsCartOpen,
-    activeOrder
+    currentOrder
   } = useRestaurant();
 
   const navItems = [
@@ -21,7 +21,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onNavigate }) 
     { id: 'menu', label: 'Menu', icon: Utensils },
     { id: 'budget', label: 'Budget', icon: Calculator },
     { id: 'loyalty', label: 'Rewards', icon: Award },
-    { id: 'tracking', label: 'Order', icon: Clock, badge: activeOrder ? '1' : null }
+    { id: 'tracking', label: 'Order', icon: Clock, badge: currentOrder ? '1' : null }
   ];
 
   const handleNavClick = (id: string) => {
@@ -31,20 +31,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onNavigate }) 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden pointer-events-none">
       {/* Floating Cart Pill if Cart has items */}
-      {totalCartItemsCount > 0 && activeView !== 'tracking' && (
+      {cartTotalCount > 0 && activeView !== 'tracking' && (
         <div className="px-4 pb-2 pointer-events-auto">
           <button
             id="mobile-floating-cart-btn"
             onClick={() => setIsCartOpen(true)}
-            className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs sm:text-sm shadow-2xl shadow-black/80 flex items-center justify-between transition-all duration-200 active:scale-98 animate-bounce-subtle"
+            className="w-full py-3 px-4 bg-[#c5a059] hover:bg-[#d6b26b] text-black font-extrabold text-xs sm:text-sm shadow-2xl shadow-black/80 flex items-center justify-between transition-all duration-200 active:scale-98 cursor-pointer ring-2 ring-[#c5a059]/50"
           >
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-black text-amber-400 flex items-center justify-center font-black text-xs">
-                {totalCartItemsCount}
+              <div className="w-6 h-6 rounded-md bg-black text-[#c5a059] flex items-center justify-center font-black text-xs">
+                {cartTotalCount}
               </div>
-              <span>View Table Cart</span>
+              <span className="uppercase tracking-wider text-xs">View Table Cart</span>
             </div>
-            <div className="font-black text-sm">
+            <div className="font-bold text-sm">
               Rs. {finalCartTotal.toLocaleString()}
             </div>
           </button>
