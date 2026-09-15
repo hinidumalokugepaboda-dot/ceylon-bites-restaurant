@@ -23,9 +23,14 @@ import { CustomerAuthModal } from './components/CustomerAuthModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { OrderTracking } from './components/OrderTracking';
 import { StickyBudgetTracker } from './components/StickyBudgetTracker';
+// Staff pages
+import { StaffLoginPage } from './components/StaffLoginPage';
+import { KitchenDashboard } from './components/KitchenDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
+import { ReceptionDashboard } from './components/ReceptionDashboard';
 
 export function App() {
-  const { activeView, setActiveView } = useRestaurant();
+  const { activeView, setActiveView, staffUser } = useRestaurant();
 
   const handleNavigate = (sectionId: string) => {
     if (sectionId === 'tracking') {
@@ -39,6 +44,13 @@ export function App() {
       setTimeout(() => {
         scrollToTarget(sectionId);
       }, 100);
+      return;
+    }
+
+    // If currently in a staff view, go home first
+    if (activeView === 'login' || activeView === 'kitchen' || activeView === 'admin') {
+      setActiveView('home');
+      setTimeout(() => scrollToTarget(sectionId), 100);
       return;
     }
 
@@ -70,6 +82,37 @@ export function App() {
     }
   };
 
+  // ----------------------------------------------------------------
+  // Staff-only views — render without the restaurant shell
+  // ----------------------------------------------------------------
+  if (activeView === 'login') {
+    return <StaffLoginPage />;
+  }
+
+  if (activeView === 'kitchen') {
+    if (!staffUser.isLoggedIn || (staffUser.role !== 'kitchen' && staffUser.role !== 'admin')) {
+      return <StaffLoginPage />;
+    }
+    return <KitchenDashboard />;
+  }
+
+  if (activeView === 'reception') {
+    if (!staffUser.isLoggedIn || (staffUser.role !== 'reception' && staffUser.role !== 'admin')) {
+      return <StaffLoginPage />;
+    }
+    return <ReceptionDashboard />;
+  }
+
+  if (activeView === 'admin') {
+    if (!staffUser.isLoggedIn || staffUser.role !== 'admin') {
+      return <StaffLoginPage />;
+    }
+    return <AdminDashboard />;
+  }
+
+  // ----------------------------------------------------------------
+  // Customer-facing restaurant shell
+  // ----------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#e5e7eb] font-sans antialiased selection:bg-[#c5a059] selection:text-black">
       {/* Top Fixed Header Navbar */}
