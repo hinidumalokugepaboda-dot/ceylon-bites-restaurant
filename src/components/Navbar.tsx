@@ -11,9 +11,13 @@ import {
   Percent,
   Award,
   Info,
-  Phone
+  ShieldCheck,
+  ChefHat,
+  LogOut,
+  Bell
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
+import CustomerNotificationPanel from './CustomerNotificationPanel';
 
 interface NavbarProps {
   onNavigate: (sectionId: string) => void;
@@ -29,11 +33,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
     setIsAuthModalOpen,
     setIsProfileOpen,
     customerUser,
-    setSearchQuery
+    setSearchQuery,
+    setActiveView,
+    staffUser,
+    logoutStaff,
+    unreadNotificationCount
   } = useRestaurant();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navSearchOpen, setNavSearchOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isCartBumping, setIsCartBumping] = useState(false);
 
   // Trigger bounce animation whenever cart items count increases
@@ -47,6 +56,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
 
   const handleNavClick = (sectionId: string) => {
     onNavigate(sectionId);
+    setMobileMenuOpen(false);
+  };
+
+  const handleStaffPortalClick = () => {
+    if (staffUser.isLoggedIn) {
+      const nextView = staffUser.role === 'admin' ? 'admin' : staffUser.role === 'reception' ? 'reception' : 'kitchen';
+      setActiveView(nextView);
+    } else {
+      setActiveView('login');
+    }
     setMobileMenuOpen(false);
   };
 
@@ -188,6 +207,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
               <Search className="w-4 h-4" />
             </button>
 
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                id="btn-nav-notifications"
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                className="relative p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-white/5 cursor-pointer flex items-center justify-center"
+                aria-label="Notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#c5a059] text-[#0a0a0a] text-[9px] font-black flex items-center justify-center shadow-md animate-pulse">
+                    {unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+
+              <CustomerNotificationPanel
+                isOpen={isNotificationOpen}
+                onClose={() => setIsNotificationOpen(false)}
+              />
+            </div>
+
             {/* Account Profile / Login */}
             <button
               id="btn-nav-account"
@@ -206,6 +247,35 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                 {customerUser.isLoggedIn ? customerUser.name.split(' ')[0] : 'Sign In'}
               </span>
             </button>
+
+            {/* Staff Portal Button */}
+            {staffUser.isLoggedIn ? (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={handleStaffPortalClick}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#c5a059]/10 border border-[#c5a059]/40 text-[#c5a059] text-[10px] uppercase tracking-wider font-bold hover:bg-[#c5a059]/20 transition-all"
+                  title={`Go to ${staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Reception' : 'Kitchen'} Dashboard`}
+                >
+                  {staffUser.role === 'admin'
+                    ? <ShieldCheck className="w-3.5 h-3.5" />
+                    : staffUser.role === 'reception'
+                    ? <User className="w-3.5 h-3.5" />
+                    : <ChefHat className="w-3.5 h-3.5" />
+                  }
+                  <span>{staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Reception' : 'Kitchen'}</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                id="btn-staff-login"
+                onClick={handleStaffPortalClick}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 border border-white/10 hover:border-[#c5a059]/40 text-gray-500 hover:text-[#c5a059] text-[10px] uppercase tracking-wider font-semibold transition-all"
+                title="Staff Login"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Staff
+              </button>
+            )}
 
             {/* Cart Button with Animated Item Counter Badge */}
             <button
@@ -344,6 +414,37 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
               </div>
               <span className="text-[10px] text-[#c5a059] font-bold">2,450 pts</span>
             </button>
+          </div>
+
+          {/* Staff portal in mobile menu */}
+          <div className="pt-1">
+            {staffUser.isLoggedIn ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleStaffPortalClick}
+                  className="flex-1 flex items-center justify-center gap-2 p-3 bg-[#c5a059]/10 border border-[#c5a059]/30 text-xs uppercase tracking-wider font-bold text-[#c5a059]"
+                >
+                  {staffUser.role === 'admin'
+                    ? <><ShieldCheck className="w-3.5 h-3.5" /> Admin Dashboard</>
+                    : <><ChefHat className="w-3.5 h-3.5" /> Kitchen Dashboard</>}
+                </button>
+                <button
+                  onClick={() => { logoutStaff(); setMobileMenuOpen(false); }}
+                  className="p-3 bg-[#141414] border border-white/10 text-zinc-400 hover:text-white"
+                  title="Staff Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleStaffPortalClick}
+                className="w-full flex items-center justify-center gap-2 p-3 bg-[#141414] border border-white/10 text-xs uppercase tracking-wider font-semibold text-gray-500 hover:text-[#c5a059]"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Staff Login
+              </button>
+            )}
           </div>
         </div>
       )}

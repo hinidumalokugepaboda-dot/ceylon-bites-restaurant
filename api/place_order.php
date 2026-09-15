@@ -54,11 +54,11 @@ try {
         INSERT INTO orders (
             order_id, order_number, table_id, customer_name, customer_phone,
             order_type, subtotal, discount, total_amount, payment_method,
-            status, special_notes, need_ice_bucket, need_glassware
+            status, payment_status, special_notes, need_ice_bucket, need_glassware
         ) VALUES (
             :order_id, :order_number, :table_id, :customer_name, :customer_phone,
             :order_type, :subtotal, :discount, :total_amount, :payment_method,
-            'received', :special_notes, :need_ice_bucket, :need_glassware
+            'pending_reception', 'pending', :special_notes, :need_ice_bucket, :need_glassware
         )
     ");
 
@@ -116,6 +116,21 @@ try {
 
     $pdo->commit();
 
+    // Create notification for reception
+    try {
+        $notifStmt = $pdo->prepare("
+            INSERT INTO notifications (recipient_type, recipient_id, order_id, notification_type, title, message)
+            VALUES ('reception', 'all', :order_id, 'NEW_ORDER_RECEPTION', :title, :message)
+        ");
+        $notifStmt->execute([
+            ':order_id' => $orderId,
+            ':title' => 'New Order Received',
+            ':message' => "Order #{$orderNumber}, Table {$tableId}, Total: Rs. " . number_format($totalAmount, 0) . ", Items: " . count($items)
+        ]);
+    } catch (Exception $e) {
+        // Don't fail the order if notification creation fails
+    }
+
     echo json_encode([
         'success' => true,
         'message' => 'Order successfully placed and recorded in database.',
@@ -123,7 +138,8 @@ try {
             'order_id' => $orderId,
             'order_number' => $orderNumber,
             'table_id' => $tableId,
-            'status' => 'received',
+            'status' => 'pending_reception',
+            'payment_status' => 'pending',
             'total_amount' => $totalAmount,
             'items_count' => count($items)
         ]

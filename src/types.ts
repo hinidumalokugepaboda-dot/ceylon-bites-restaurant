@@ -61,7 +61,24 @@ export interface CartItem {
   itemTotal: number;
 }
 
-export type OrderStatus = 'received' | 'accepted' | 'preparing' | 'ready' | 'completed';
+// Extended order statuses for the full reception → kitchen → customer workflow.
+export type OrderStatus =
+  | 'pending_reception'
+  | 'payment_pending'
+  | 'confirmed_reception'
+  | 'sent_to_kitchen'
+  | 'accepted_by_kitchen'
+  | 'preparing'
+  | 'ready'
+  | 'completed'
+  | 'rejected_reception'
+  | 'rejected_kitchen'
+  | 'pending'
+  | 'received'
+  | 'accepted'
+  | 'rejected';
+
+export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'paid_online' | 'pay_at_table_cash' | 'pay_at_table_card';
 
 export interface Order {
   id: string;
@@ -75,7 +92,7 @@ export interface Order {
   loyaltyDiscount: number;
   total: number;
   paymentMethod: 'cash' | 'card' | 'online';
-  paymentStatus?: 'paid_online' | 'pay_at_table_cash' | 'pay_at_table_card';
+  paymentStatus?: PaymentStatus;
   transactionId?: string;
   cardLast4?: string;
   status: OrderStatus;
@@ -85,6 +102,45 @@ export interface Order {
   specialNotes?: string;
   needIceBucket?: boolean;
   needGlassware?: boolean;
+  // Reception + kitchen workflow fields
+  estimatedPrepTime?: number;
+  kitchenNote?: string;
+  rejectionReason?: string;
+  cancellationReason?: string;
+  acceptedAt?: string;
+  receptionConfirmedAt?: string;
+  sentToKitchenAt?: string;
+}
+
+export type CustomerNotificationType =
+  | 'NEW_ORDER'
+  | 'RECEPTION_CANCELLED'
+  | 'RECEPTION_CONFIRMED'
+  | 'SENT_TO_KITCHEN'
+  | 'KITCHEN_ACCEPTED'
+  | 'KITCHEN_REJECTED'
+  | 'ORDER_PREPARING'
+  | 'ORDER_READY'
+  | 'ORDER_COMPLETED';
+
+export interface CustomerNotification {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  type: CustomerNotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
+// Staff user for admin/reception/kitchen login
+export interface StaffUser {
+  staffId: string;
+  staffCode: string;
+  name: string;
+  role: 'admin' | 'reception' | 'kitchen';
+  isLoggedIn: boolean;
 }
 
 export interface RewardVoucher {
@@ -173,4 +229,3 @@ export interface SpecialOffer {
   applicableDishId?: string;
   validUntil: string;
 }
-
