@@ -11,7 +11,9 @@ import {
   Percent,
   Award,
   Info,
-  Phone
+  ShieldCheck,
+  ChefHat,
+  LogOut
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
 
@@ -29,7 +31,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
     setIsAuthModalOpen,
     setIsProfileOpen,
     customerUser,
-    setSearchQuery
+    setSearchQuery,
+    setActiveView,
+    staffUser,
+    logoutStaff
   } = useRestaurant();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -37,6 +42,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
 
   const handleNavClick = (sectionId: string) => {
     onNavigate(sectionId);
+    setMobileMenuOpen(false);
+  };
+
+  const handleStaffPortalClick = () => {
+    if (staffUser.isLoggedIn) {
+      const nextView = staffUser.role === 'admin' ? 'admin' : staffUser.role === 'reception' ? 'reception' : 'kitchen';
+      setActiveView(nextView);
+    } else {
+      setActiveView('login');
+    }
     setMobileMenuOpen(false);
   };
 
@@ -117,13 +132,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
             >
               About & BYOB
             </button>
-            <button
-              id="nav-contact"
-              onClick={() => handleNavClick('contact')}
-              className="px-3 py-2 text-xs uppercase tracking-[0.15em] font-medium text-gray-400 hover:text-white transition-all"
-            >
-              Contact
-            </button>
           </nav>
 
           {/* Right Action Icons */}
@@ -173,6 +181,35 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                 {customerUser.isLoggedIn ? customerUser.name.split(' ')[0] : 'Sign In'}
               </span>
             </button>
+
+            {/* Staff Portal Button */}
+            {staffUser.isLoggedIn ? (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={handleStaffPortalClick}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#c5a059]/10 border border-[#c5a059]/40 text-[#c5a059] text-[10px] uppercase tracking-wider font-bold hover:bg-[#c5a059]/20 transition-all"
+                  title={`Go to ${staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Reception' : 'Kitchen'} Dashboard`}
+                >
+                  {staffUser.role === 'admin'
+                    ? <ShieldCheck className="w-3.5 h-3.5" />
+                    : staffUser.role === 'reception'
+                    ? <User className="w-3.5 h-3.5" />
+                    : <ChefHat className="w-3.5 h-3.5" />
+                  }
+                  <span>{staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Reception' : 'Kitchen'}</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                id="btn-staff-login"
+                onClick={handleStaffPortalClick}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 border border-white/10 hover:border-[#c5a059]/40 text-gray-500 hover:text-[#c5a059] text-[10px] uppercase tracking-wider font-semibold transition-all"
+                title="Staff Login"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Staff
+              </button>
+            )}
 
             {/* Cart Button */}
             <button
@@ -304,6 +341,37 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
               </div>
               <span className="text-[10px] text-[#c5a059] font-bold">2,450 pts</span>
             </button>
+          </div>
+
+          {/* Staff portal in mobile menu */}
+          <div className="pt-1">
+            {staffUser.isLoggedIn ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleStaffPortalClick}
+                  className="flex-1 flex items-center justify-center gap-2 p-3 bg-[#c5a059]/10 border border-[#c5a059]/30 text-xs uppercase tracking-wider font-bold text-[#c5a059]"
+                >
+                  {staffUser.role === 'admin'
+                    ? <><ShieldCheck className="w-3.5 h-3.5" /> Admin Dashboard</>
+                    : <><ChefHat className="w-3.5 h-3.5" /> Kitchen Dashboard</>}
+                </button>
+                <button
+                  onClick={() => { logoutStaff(); setMobileMenuOpen(false); }}
+                  className="p-3 bg-[#141414] border border-white/10 text-zinc-400 hover:text-white"
+                  title="Staff Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleStaffPortalClick}
+                className="w-full flex items-center justify-center gap-2 p-3 bg-[#141414] border border-white/10 text-xs uppercase tracking-wider font-semibold text-gray-500 hover:text-[#c5a059]"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Staff Login
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -1,18 +1,26 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   FoodItem,
   ItemPortion,
   CartItem,
   Order,
   OrderStatus,
+  PaymentStatus,
   MenuCategory,
   LoyaltyAccount,
   SpiceLevel,
   FoodAddon,
   BudgetRecommendation,
-  PortionSwapSuggestion
+  PortionSwapSuggestion,
+  StaffUser,
+  CustomerNotification
 } from '../types';
 import { FOOD_ITEMS, REWARD_VOUCHERS } from '../data/menuData';
+
+// ================================================================
+// View types — extended for staff pages
+// ================================================================
+export type ActiveView = 'home' | 'tracking' | 'login' | 'kitchen' | 'admin' | 'reception';
 
 interface RestaurantContextType {
   // Table context
@@ -21,9 +29,9 @@ interface RestaurantContextType {
   orderType: 'dine-in' | 'takeaway';
   setOrderType: (type: 'dine-in' | 'takeaway') => void;
 
-  // Active View ('home' | 'tracking')
-  activeView: 'home' | 'tracking';
-  setActiveView: (view: 'home' | 'tracking') => void;
+  // Active View
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
 
   // Target Budget Limit Tracker
   targetBudget: number | null;
@@ -88,6 +96,25 @@ interface RestaurantContextType {
   closeOrderTracking: () => void;
   advanceOrderStatus: (orderId: string) => void;
 
+  // Kitchen Dashboard
+  kitchenOrders: Order[];
+  acceptOrder: (orderId: string, prepTime: number, note?: string) => void;
+  rejectOrder: (orderId: string, reason: string) => void;
+  newOrderNotification: boolean;
+  dismissNewOrderNotification: () => void;
+  pollKitchenOrders: () => void;
+
+  // Reception Dashboard
+  confirmReceptionOrder: (orderId: string) => void;
+  rejectReceptionOrder: (orderId: string, reason: string) => void;
+
+  // Customer Notifications
+  customerNotifications: CustomerNotification[];
+  addCustomerNotification: (notification: Omit<CustomerNotification, 'id' | 'createdAt' | 'read'>) => void;
+  markCustomerNotificationRead: (notificationId: string) => void;
+  markAllNotificationsRead: () => void;
+  unreadNotificationCount: number;
+
   // Loyalty
   loyalty: LoyaltyAccount;
   addLoyaltyPoints: (points: number, reason: string) => void;
@@ -113,8 +140,14 @@ interface RestaurantContextType {
     email: string;
     isLoggedIn: boolean;
   };
+  setCustomerUser: (user: { name: string; phone: string; email: string; isLoggedIn: boolean }) => void;
   loginCustomer: (name: string, phone: string, email?: string) => void;
   logoutCustomer: () => void;
+
+  // Staff Auth
+  staffUser: StaffUser;
+  loginStaff: (staffCode: string, password: string) => Promise<{ success: boolean; message: string }>;
+  logoutStaff: () => void;
 
   // Budget Optimizer Helper
   optimizeBudget: (
@@ -238,11 +271,23 @@ const INITIAL_ORDER_HISTORY: Order[] = [
   }
 ];
 
+// Demo staff credentials (frontend fallback when PHP backend is not running)
+const DEMO_STAFF: StaffUser[] = [
+  { staffId: '1', staffCode: 'ADMIN001', name: 'Saman Perera', role: 'admin', isLoggedIn: false },
+  { staffId: '2', staffCode: 'REC001', name: 'Dilini Fernando', role: 'reception', isLoggedIn: false },
+  { staffId: '3', staffCode: 'KIT001', name: 'Nimal Kumara', role: 'kitchen', isLoggedIn: false }
+];
+const DEMO_PASSWORDS: Record<string, string> = {
+  'ADMIN001': 'admin123',
+  'REC001': 'reception123',
+  'KIT001': 'kitchen123'
+};
+
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Table context from URL query parameter ?table=12
   const [tableNumber, setTableNumber] = useState<string>('12');
   const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('dine-in');
-  const [activeView, setActiveView] = useState<'home' | 'tracking'>('home');
+  const [activeView, setActiveView] = useState<ActiveView>('home');
 
   // Sticky Target Budget Tracker
   const [targetBudget, setTargetBudget] = useState<number | null>(null);
@@ -251,7 +296,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const tableParam = params.get('table');
+      const tableParam = params.get('table') || params.get('table_id');
       if (tableParam) {
         setTableNumber(tableParam);
       }
@@ -289,6 +334,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
 
+  // Kitchen dashboard state
+  const [kitchenOrders, setKitchenOrders] = useState<Order[]>([]);
+  const [newOrderNotification, setNewOrderNotification] = useState(false);
+  const prevOrderCountRef = useRef<number>(0);
+
   // Save orders to localStorage on change
   useEffect(() => {
     try {
@@ -317,14 +367,443 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     isLoggedIn: true
   });
 
-  const openFoodModal = (food: FoodItem) => {
-    setSelectedFood(food);
+  // Staff Auth
+  const [staffUser, setStaffUser] = useState<StaffUser>(() => {
+    try {
+      const saved = localStorage.getItem('ceylon_staff_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.isLoggedIn) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return { staffId: '', staffCode: '', name: '', role: 'kitchen', isLoggedIn: false };
+  });
+
+  // Persist staff session
+  useEffect(() => {
+    try {
+      localStorage.setItem('ceylon_staff_session', JSON.stringify(staffUser));
+    } catch {
+      // ignore
+    }
+  }, [staffUser]);
+
+  // ----------------------------------------------------------------
+  // Staff Login — tries PHP backend first, falls back to demo data
+  // ----------------------------------------------------------------
+  const loginStaff = async (staffCode: string, password: string): Promise<{ success: boolean; message: string }> => {
+    if (!staffCode.trim()) return { success: false, message: 'Please enter your Staff ID.' };
+    if (!password) return { success: false, message: 'Please enter your password.' };
+
+    // Try PHP backend
+    try {
+      const res = await fetch('/api/staff_login.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_code: staffCode.trim().toUpperCase(), password })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          const user: StaffUser = {
+            staffId: String(json.staff_id),
+            staffCode: json.staff_code,
+            name: json.name,
+            role: json.role as 'admin' | 'reception' | 'kitchen',
+            isLoggedIn: true
+          };
+          setStaffUser(user);
+          return { success: true, message: 'Login successful.' };
+        } else {
+          return { success: false, message: json.message || 'Invalid credentials.' };
+        }
+      }
+    } catch {
+      // Backend not available — fall through to demo fallback
+    }
+
+    // Demo fallback (frontend-only mode)
+    const codeUp = staffCode.trim().toUpperCase();
+    const demo = DEMO_STAFF.find((s) => s.staffCode === codeUp);
+    if (demo && DEMO_PASSWORDS[codeUp] === password) {
+      const user: StaffUser = { ...demo, isLoggedIn: true };
+      setStaffUser(user);
+      return { success: true, message: 'Login successful (demo mode).' };
+    }
+
+    return { success: false, message: 'Invalid Staff ID or password.' };
   };
 
-  const closeFoodModal = () => {
-    setSelectedFood(null);
+  const logoutStaff = () => {
+    setStaffUser({ staffId: '', staffCode: '', name: '', role: 'kitchen', isLoggedIn: false });
+    setActiveView('home');
+    try { localStorage.removeItem('ceylon_staff_session'); } catch { /* ignore */ }
   };
 
+  // ----------------------------------------------------------------
+  // Kitchen order polling — fetches from API or uses local orderHistory
+  // ----------------------------------------------------------------
+  const pollKitchenOrders = useCallback(async () => {
+    try {
+      const res = await fetch('/api/get_orders_detailed.php');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.orders)) {
+          // Map API response to Order shape
+          const mapped: Order[] = json.orders.map((o: Record<string, unknown>) => ({
+            id: String(o.order_id),
+            orderNumber: String(o.order_number),
+            tableNumber: String(o.table_id),
+            customerName: String(o.customer_name || 'Guest'),
+            customerPhone: String(o.customer_phone || ''),
+            items: Array.isArray(o.items) ? (o.items as Record<string, unknown>[]).map((i: Record<string, unknown>) => ({
+              cartItemId: String(i.order_item_id),
+              food: { id: String(i.item_id), name: String(i.item_name || i.item_id) } as FoodItem,
+              selectedPortion: { id: String(i.portion_id), portionName: String(i.portion_name), portionCode: 'S', price: Number(i.unit_price), servesCount: 1 } as ItemPortion,
+              quantity: Number(i.quantity),
+              spiceLevel: String(i.spice_level || 'medium') as SpiceLevel,
+              specialInstructions: String(i.special_instructions || ''),
+              selectedAddons: Array.isArray(i.selected_addons) ? i.selected_addons as FoodAddon[] : [],
+              itemTotal: Number(i.item_total)
+            })) : [],
+            subtotal: Number(o.subtotal),
+            discount: Number(o.discount || 0),
+            loyaltyDiscount: 0,
+            total: Number(o.total_amount),
+            paymentMethod: (o.payment_method as 'cash' | 'card' | 'online') || 'cash',
+            status: (o.status as OrderStatus) || 'pending',
+            createdAt: String(o.created_at || ''),
+            estimatedMinutes: Number(o.estimated_prep_time || 0),
+            estimatedPrepTime: Number(o.estimated_prep_time || 0) || undefined,
+            kitchenNote: o.kitchen_note ? String(o.kitchen_note) : undefined,
+            rejectionReason: o.rejection_reason ? String(o.rejection_reason) : undefined,
+            acceptedAt: o.accepted_at ? String(o.accepted_at) : undefined,
+            orderType: (o.order_type as 'dine-in' | 'takeaway') || 'dine-in',
+            specialNotes: o.special_notes ? String(o.special_notes) : undefined,
+            needIceBucket: Boolean(o.need_ice_bucket),
+            needGlassware: Boolean(o.need_glassware)
+          }));
+
+          const pendingNew = mapped.filter((o) => o.status === 'sent_to_kitchen').length;
+          if (pendingNew > prevOrderCountRef.current && prevOrderCountRef.current >= 0) {
+            setNewOrderNotification(true);
+          }
+          prevOrderCountRef.current = pendingNew;
+
+          setOrderHistory((prev) => {
+            const merged = [...mapped, ...prev.filter((local) => !mapped.some((dbOrder) => dbOrder.id === local.id))];
+            return merged;
+          });
+          setKitchenOrders(mapped);
+          return;
+        }
+      }
+    } catch {
+      // Backend unavailable — use local order history as fallback
+    }
+
+    // Fallback: show local order history in kitchen
+    setKitchenOrders([...orderHistory]);
+  }, [orderHistory]);
+
+  // Auto-poll when in kitchen or admin view
+  useEffect(() => {
+    if (activeView === 'kitchen' || activeView === 'admin' || activeView === 'reception') {
+      pollKitchenOrders();
+      const interval = setInterval(pollKitchenOrders, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [activeView, pollKitchenOrders]);
+
+  const dismissNewOrderNotification = () => setNewOrderNotification(false);
+
+  // ----------------------------------------------------------------
+  // Customer Notifications
+  // ----------------------------------------------------------------
+  const [customerNotifications, setCustomerNotifications] = useState<CustomerNotification[]>(() => {
+    try {
+      const saved = localStorage.getItem('ceylon_customer_notifications');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ceylon_customer_notifications', JSON.stringify(customerNotifications));
+    } catch { /* ignore */ }
+  }, [customerNotifications]);
+
+  const addCustomerNotification = useCallback((notification: Omit<CustomerNotification, 'id' | 'createdAt' | 'read'>) => {
+    const newNotif: CustomerNotification = {
+      ...notification,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: new Date().toISOString(),
+      read: false
+    };
+    setCustomerNotifications((prev) => [newNotif, ...prev]);
+  }, []);
+
+  const markCustomerNotificationRead = (notificationId: string) => {
+    setCustomerNotifications((prev) =>
+      prev.map((n) => n.id === notificationId ? { ...n, read: true } : n)
+    );
+  };
+
+  const markAllNotificationsRead = () => {
+    setCustomerNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const unreadNotificationCount = customerNotifications.filter((n) => !n.read).length;
+
+  // ----------------------------------------------------------------
+  // Reception — confirm or reject an order
+  // ----------------------------------------------------------------
+  const confirmReceptionOrder = (orderId: string) => {
+    const updater = (orders: Order[]) =>
+      orders.map((o) => {
+        if (o.id !== orderId) return o;
+        return {
+          ...o,
+          paymentStatus: 'confirmed' as PaymentStatus,
+          status: 'sent_to_kitchen' as OrderStatus,
+          receptionConfirmedAt: new Date().toISOString(),
+          sentToKitchenAt: new Date().toISOString()
+        };
+      });
+
+    setOrderHistory(updater);
+    setKitchenOrders(updater);
+
+    // Find the order for notification details
+    const order = orderHistory.find((o) => o.id === orderId);
+
+    // Notify customer that order is confirmed and sent to kitchen
+    if (order) {
+      addCustomerNotification({
+        orderId,
+        orderNumber: order.orderNumber,
+        type: 'RECEPTION_CONFIRMED',
+        title: 'Order Confirmed by Reception',
+        message: `Your order #${order.orderNumber} has been confirmed and payment verified.`
+      });
+      try {
+        fetch('/api/create_notification.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: orderId,
+            type: 'RECEPTION_CONFIRMED',
+            title: 'Order Confirmed by Reception',
+            message: `Your order #${order.orderNumber} has been confirmed and payment verified.`
+          })
+        }).catch(() => { /* ignore */ });
+      } catch { /* ignore */ }
+
+      // Slight delay for the "sent to kitchen" notification
+      setTimeout(() => {
+        addCustomerNotification({
+          orderId,
+          orderNumber: order.orderNumber,
+          type: 'SENT_TO_KITCHEN',
+          title: 'Sent to Kitchen',
+          message: `Your order #${order.orderNumber} has been sent to the kitchen for preparation.`
+        });
+        try {
+          fetch('/api/create_notification.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              order_id: orderId,
+              type: 'SENT_TO_KITCHEN',
+              title: 'Sent to Kitchen',
+              message: `Your order #${order.orderNumber} has been sent to the kitchen for preparation.`
+            })
+          }).catch(() => { /* ignore */ });
+        } catch { /* ignore */ }
+      }, 500);
+    }
+    // Trigger kitchen notification
+    setNewOrderNotification(true);
+
+    // Update active tracking order
+    if (activeTrackingOrder?.id === orderId) {
+      const updated = updater([activeTrackingOrder])[0];
+      setActiveTrackingOrder(updated);
+    }
+    if (currentOrder?.id === orderId) {
+      const updated = updater([currentOrder])[0];
+      setCurrentOrder(updated);
+    }
+
+    // Try backend
+    try {
+      fetch('/api/update_order_status.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          new_status: 'sent_to_kitchen',
+          payment_status: 'confirmed'
+        })
+      }).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
+  };
+
+  const rejectReceptionOrder = (orderId: string, reason: string) => {
+    const updater = (orders: Order[]) =>
+      orders.map((o) =>
+        o.id === orderId
+          ? { ...o, status: 'rejected_reception' as OrderStatus, paymentStatus: 'failed' as PaymentStatus, rejectionReason: reason, cancellationReason: reason }
+          : o
+      );
+    setOrderHistory(updater);
+    setKitchenOrders(updater);
+
+    const order = orderHistory.find((o) => o.id === orderId);
+    if (order) {
+      addCustomerNotification({
+        orderId,
+        orderNumber: order.orderNumber,
+        type: 'RECEPTION_CANCELLED',
+        title: 'Order Cancelled by Reception',
+        message: `Sorry, your order #${order.orderNumber} was not approved. Reason: ${reason}`
+      });
+      try {
+        fetch('/api/create_notification.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: orderId,
+            type: 'RECEPTION_CANCELLED',
+            title: 'Order Cancelled by Reception',
+            message: `Sorry, your order #${order.orderNumber} was not approved. Reason: ${reason}`
+          })
+        }).catch(() => { /* ignore */ });
+      } catch { /* ignore */ }
+    }
+
+    if (activeTrackingOrder?.id === orderId) {
+      setActiveTrackingOrder((prev) => prev ? { ...prev, status: 'rejected_reception', rejectionReason: reason, cancellationReason: reason } : prev);
+    }
+    if (currentOrder?.id === orderId) {
+      setCurrentOrder((prev) => prev ? { ...prev, status: 'rejected_reception', rejectionReason: reason, cancellationReason: reason } : prev);
+    }
+
+    try {
+      fetch('/api/update_order_status.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, new_status: 'rejected_reception', rejection_reason: reason, cancellation_reason: reason })
+      }).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
+  };
+
+  // ----------------------------------------------------------------
+  // Accept / Reject order (kitchen actions)
+  // ----------------------------------------------------------------
+  const acceptOrder = async (orderId: string, prepTime: number, note = '') => {
+    const updateLocal = () => {
+      const updater = (orders: Order[]) =>
+        orders.map((o) =>
+          o.id === orderId
+            ? { ...o, status: 'accepted_by_kitchen' as OrderStatus, estimatedPrepTime: prepTime, estimatedMinutes: prepTime, kitchenNote: note || undefined, acceptedAt: new Date().toISOString() }
+            : o
+        );
+      setKitchenOrders(updater);
+      setOrderHistory(updater);
+      if (activeTrackingOrder?.id === orderId) {
+        setActiveTrackingOrder((prev) => prev ? { ...prev, status: 'accepted_by_kitchen', estimatedPrepTime: prepTime, estimatedMinutes: prepTime, kitchenNote: note || undefined } : prev);
+      }
+      if (currentOrder?.id === orderId) {
+        setCurrentOrder((prev) => prev ? { ...prev, status: 'accepted_by_kitchen', estimatedPrepTime: prepTime, estimatedMinutes: prepTime, kitchenNote: note || undefined } : prev);
+      }
+    };
+
+    // Send customer notification
+    const order = orderHistory.find((o) => o.id === orderId);
+    if (order) {
+      addCustomerNotification({
+        orderId,
+        orderNumber: order.orderNumber,
+        type: 'KITCHEN_ACCEPTED',
+        title: 'Kitchen Accepted Your Order',
+        message: `Your order #${order.orderNumber} has been accepted by the kitchen. Estimated preparation time: ${prepTime} minutes.${note ? ` Note: ${note}` : ''}`
+      });
+    }
+
+    try {
+      const res = await fetch('/api/update_order_status.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, new_status: 'accepted_by_kitchen', estimated_prep_time: prepTime, kitchen_note: note })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) { updateLocal(); return; }
+      }
+    } catch {
+      // Backend not available
+    }
+    updateLocal();
+  };
+
+  const rejectOrder = async (orderId: string, reason: string) => {
+    const updateLocal = () => {
+      const updater = (orders: Order[]) =>
+        orders.map((o) =>
+          o.id === orderId
+            ? { ...o, status: 'rejected_kitchen' as OrderStatus, rejectionReason: reason }
+            : o
+        );
+      setKitchenOrders(updater);
+      setOrderHistory(updater);
+      if (activeTrackingOrder?.id === orderId) {
+        setActiveTrackingOrder((prev) => prev ? { ...prev, status: 'rejected_kitchen', rejectionReason: reason } : prev);
+      }
+      if (currentOrder?.id === orderId) {
+        setCurrentOrder((prev) => prev ? { ...prev, status: 'rejected_kitchen', rejectionReason: reason } : prev);
+      }
+    };
+
+    const order = orderHistory.find((o) => o.id === orderId);
+    if (order) {
+      addCustomerNotification({
+        orderId,
+        orderNumber: order.orderNumber,
+        type: 'KITCHEN_REJECTED',
+        title: 'Order Rejected by Kitchen',
+        message: `Sorry, your order #${order.orderNumber} could not be accepted by the kitchen. Reason: ${reason}`
+      });
+    }
+
+    try {
+      const res = await fetch('/api/update_order_status.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, new_status: 'rejected_kitchen', rejection_reason: reason })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) { updateLocal(); return; }
+      }
+    } catch {
+      // Backend not available
+    }
+    updateLocal();
+  };
+
+  // ----------------------------------------------------------------
+  // Food modal
+  // ----------------------------------------------------------------
+  const openFoodModal = (food: FoodItem) => { setSelectedFood(food); };
+  const closeFoodModal = () => { setSelectedFood(null); };
+
+  // ----------------------------------------------------------------
+  // Cart operations
+  // ----------------------------------------------------------------
   const addToCart = (
     food: FoodItem,
     quantity = 1,
@@ -336,13 +815,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const portionToUse = selectedPortion || food.portions?.[0] || {
       id: `${food.id}-default`,
       portionName: 'Small (S)',
-      portionCode: 'S',
+      portionCode: 'S' as const,
       price: food.price,
       servesCount: 1
     };
 
     setCart((prev) => {
-      // Check if identical item with same portion and addons exists
       const addonIds = selectedAddons.map((a) => a.id).sort().join(',');
       const existingIndex = prev.findIndex(
         (item) =>
@@ -478,6 +956,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   };
 
+  // ----------------------------------------------------------------
+  // Place order
+  // ----------------------------------------------------------------
   const placeOrder = async (
     customerName: string,
     customerPhone: string,
@@ -497,7 +978,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       loyaltyDiscount: appliedLoyaltyDiscount,
       total: finalCartTotal,
       paymentMethod,
-      status: 'received',
+      paymentStatus: 'pending',
+      status: 'pending_reception',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
       estimatedMinutes: 18,
       orderType: orderType,
@@ -506,7 +988,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       needGlassware
     };
 
-    // Attempt live POST to PHP backend if available
     try {
       await fetch('/api/place_order.php', {
         method: 'POST',
@@ -544,6 +1025,19 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setCurrentOrder(newOrder);
     setOrderHistory((prev) => [newOrder, ...prev]);
+    setKitchenOrders((prev) => {
+      const exists = prev.find((o) => o.id === newOrder.id);
+      if (exists) return prev;
+      return [newOrder, ...prev];
+    });
+    addCustomerNotification({
+      orderId: newOrder.id,
+      orderNumber: newOrder.orderNumber,
+      type: 'NEW_ORDER',
+      title: 'New Order Received',
+      message: `Your order #${newOrder.orderNumber} has been received and is waiting for reception confirmation.`
+    });
+    setNewOrderNotification(true);
 
     // Earn loyalty points
     const earnedPoints = Math.round(finalCartTotal * 0.1);
@@ -563,23 +1057,35 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return newOrder;
   };
 
-  const openOrderTracking = (order: Order) => {
-    setActiveTrackingOrder(order);
-  };
-
-  const closeOrderTracking = () => {
-    setActiveTrackingOrder(null);
-  };
+  const openOrderTracking = (order: Order) => { setActiveTrackingOrder(order); };
+  const closeOrderTracking = () => { setActiveTrackingOrder(null); };
 
   const advanceOrderStatus = (orderId: string) => {
-    const sequence: OrderStatus[] = ['received', 'accepted', 'preparing', 'ready', 'completed'];
+    const sequence: OrderStatus[] = ['pending_reception', 'confirmed_reception', 'sent_to_kitchen', 'accepted_by_kitchen', 'preparing', 'ready', 'completed'];
     const updateStatus = (currentStatus: OrderStatus): OrderStatus => {
-      const nextIndex = sequence.indexOf(currentStatus) + 1;
+      const legacyMap: Record<OrderStatus, OrderStatus> = {
+        pending: 'pending_reception',
+        received: 'pending_reception',
+        accepted: 'accepted_by_kitchen',
+        rejected: 'rejected_kitchen',
+        pending_reception: 'confirmed_reception',
+        payment_pending: 'confirmed_reception',
+        confirmed_reception: 'sent_to_kitchen',
+        sent_to_kitchen: 'accepted_by_kitchen',
+        accepted_by_kitchen: 'preparing',
+        preparing: 'ready',
+        ready: 'completed',
+        completed: 'completed',
+        rejected_reception: 'rejected_reception',
+        rejected_kitchen: 'rejected_kitchen'
+      };
+      const normalized = legacyMap[currentStatus] || currentStatus;
+      const nextIndex = sequence.indexOf(normalized) + 1;
       return nextIndex < sequence.length ? sequence[nextIndex] : 'completed';
     };
 
-    setOrderHistory((prev) =>
-      prev.map((ord) => {
+    const updater = (orders: Order[]) =>
+      orders.map((ord) => {
         if (ord.id === orderId) {
           const next = updateStatus(ord.status);
           const updated = {
@@ -587,19 +1093,62 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             status: next,
             estimatedMinutes: next === 'completed' ? 0 : Math.max(0, ord.estimatedMinutes - 5)
           };
-          if (activeTrackingOrder?.id === orderId) {
-            setActiveTrackingOrder(updated);
-          }
-          if (currentOrder?.id === orderId) {
-            setCurrentOrder(updated);
-          }
           return updated;
         }
         return ord;
-      })
-    );
+      });
+
+    setOrderHistory(updater);
+    setKitchenOrders(updater);
+
+    setOrderHistory((prev) => {
+      const updated = updater(prev);
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      if (updatedOrder) {
+        if (activeTrackingOrder?.id === orderId) setActiveTrackingOrder(updatedOrder);
+        if (currentOrder?.id === orderId) setCurrentOrder(updatedOrder);
+
+        if (updatedOrder.status === 'preparing') {
+          addCustomerNotification({
+            orderId,
+            orderNumber: updatedOrder.orderNumber,
+            type: 'ORDER_PREPARING',
+            title: 'Order Being Prepared',
+            message: `Your order #${updatedOrder.orderNumber} is now being prepared.`
+          });
+        } else if (updatedOrder.status === 'ready') {
+          addCustomerNotification({
+            orderId,
+            orderNumber: updatedOrder.orderNumber,
+            type: 'ORDER_READY',
+            title: 'Order Ready',
+            message: `Your order #${updatedOrder.orderNumber} is ready!`
+          });
+        } else if (updatedOrder.status === 'completed') {
+          addCustomerNotification({
+            orderId,
+            orderNumber: updatedOrder.orderNumber,
+            type: 'ORDER_COMPLETED',
+            title: 'Order Completed',
+            message: `Your order #${updatedOrder.orderNumber} has been completed. Enjoy your meal!`
+          });
+        }
+
+        try {
+          fetch('/api/update_order_status.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId, new_status: updatedOrder.status })
+          }).catch(() => { /* ignore */ });
+        } catch { /* ignore */ }
+      }
+      return updated;
+    });
   };
 
+  // ----------------------------------------------------------------
+  // Customer auth
+  // ----------------------------------------------------------------
   const loginCustomer = (name: string, phone: string, email = '') => {
     setCustomerUser({
       name: name || 'Valued Guest',
@@ -611,17 +1160,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const logoutCustomer = () => {
-    setCustomerUser({
-      name: '',
-      phone: '',
-      email: '',
-      isLoggedIn: false
-    });
+    setCustomerUser({ name: '', phone: '', email: '', isLoggedIn: false });
   };
 
-  // -------------------------------------------------------------
+  // ----------------------------------------------------------------
   // Dynamic Knapsack Multi-tier Portion Budget Optimizer
-  // -------------------------------------------------------------
+  // ----------------------------------------------------------------
   const optimizeBudget = (
     budget: number,
     protein: string,
@@ -629,7 +1173,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     drink: string,
     groupSize = 1
   ): BudgetRecommendation => {
-    // 1. Filter candidate mains
     let candidateMains = FOOD_ITEMS.filter((item) => {
       if (item.category === 'desserts' || item.category === 'drinks' || item.category === 'sharing') return false;
       if (foodType !== 'any' && item.category !== foodType) return false;
@@ -651,7 +1194,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     candidateMains.sort((a, b) => (b.popular ? 1 : 0) - (a.popular ? 1 : 0) || a.price - b.price);
     const mainDish = candidateMains[0] || FOOD_ITEMS[0];
 
-    // 2. Candidate side bites
     let candidateSides = FOOD_ITEMS.filter((item) => {
       if (item.id === mainDish.id) return false;
       return item.category === 'devilled' || item.category === 'chicken-bites' || item.category === 'seafood';
@@ -661,7 +1203,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     const sideBite = candidateSides[0] || FOOD_ITEMS.find((f) => f.id === 'devilled-chicken') || FOOD_ITEMS[7];
 
-    // 3. Candidate drinks
     let candidateDrinks = FOOD_ITEMS.filter((item) => item.category === 'drinks');
     if (drink !== 'any') {
       if (drink === 'lime') candidateDrinks = candidateDrinks.filter((i) => i.id === 'drink-fresh-lime');
@@ -672,33 +1213,17 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const drinkItem = candidateDrinks[0] || FOOD_ITEMS.find((f) => f.id === 'drink-fresh-lime') || FOOD_ITEMS[FOOD_ITEMS.length - 3];
     const drinkPortion = drinkItem.portions[0];
 
-    // 4. Select Portions using Knapsack & Headcount Constraint
-    // Determine target portion for Main:
-    // If groupSize == 1 -> Small (S - serves 1)
-    // If groupSize == 2 -> Medium (M - serves 2)
-    // If groupSize >= 3 -> Large (L - serves 3)
-    let chosenMainPortion = mainDish.portions.find((p) => p.portionCode === (groupSize === 1 ? 'S' : groupSize === 2 ? 'M' : 'L')) || mainDish.portions[0];
-
-    // Determine target portion for Side:
-    let chosenSidePortion = sideBite.portions.find((p) => p.portionCode === (groupSize === 1 ? 'S' : groupSize <= 3 ? 'M' : 'L')) || sideBite.portions[0];
-
-    // Drinks count: 1 per person
+    const chosenMainPortion = mainDish.portions.find((p) => p.portionCode === (groupSize === 1 ? 'S' : groupSize === 2 ? 'M' : 'L')) || mainDish.portions[0];
+    const chosenSidePortion = sideBite.portions.find((p) => p.portionCode === (groupSize === 1 ? 'S' : groupSize <= 3 ? 'M' : 'L')) || sideBite.portions[0];
     const drinkQty = Math.max(1, groupSize);
 
-    // Initial item selection
     const recommendationItems: { food: FoodItem; portion: ItemPortion; quantity: number; itemTotal: number }[] = [
-      {
-        food: mainDish,
-        portion: chosenMainPortion,
-        quantity: 1,
-        itemTotal: chosenMainPortion.price
-      }
+      { food: mainDish, portion: chosenMainPortion, quantity: 1, itemTotal: chosenMainPortion.price }
     ];
 
     let runningCost = chosenMainPortion.price;
     let totalServings = chosenMainPortion.servesCount;
 
-    // Add drinks
     recommendationItems.push({
       food: drinkItem,
       portion: drinkPortion,
@@ -707,7 +1232,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
     runningCost += drinkPortion.price * drinkQty;
 
-    // Add side bite if budget permits or group >= 2
     if (runningCost + chosenSidePortion.price <= budget || groupSize >= 2) {
       recommendationItems.splice(1, 0, {
         food: sideBite,
@@ -719,11 +1243,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       totalServings += chosenSidePortion.servesCount;
     }
 
-    // 5. Knapsack Downscaling if over budget
     const swapSuggestions: PortionSwapSuggestion[] = [];
 
     if (runningCost > budget) {
-      // Check if downscaling Main portion brings it under budget
       const smallerMainPortions = mainDish.portions.filter((p) => p.price < chosenMainPortion.price);
       if (smallerMainPortions.length > 0) {
         const smallerPortion = smallerMainPortions[smallerMainPortions.length - 1];
@@ -739,7 +1261,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
       }
 
-      // Check if downscaling side bite helps
       const sideItemInCombo = recommendationItems.find((it) => it.food.id === sideBite.id);
       if (sideItemInCombo) {
         const smallerSidePortions = sideBite.portions.filter((p) => p.price < sideItemInCombo.portion.price);
@@ -758,7 +1279,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
     } else {
-      // Upscaling Suggestion: If remaining budget allows upgrade
       const remainingBudget = budget - runningCost;
       const largerMainPortions = mainDish.portions.filter((p) => p.price > chosenMainPortion.price);
       if (largerMainPortions.length > 0) {
@@ -844,6 +1364,19 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         openOrderTracking,
         closeOrderTracking,
         advanceOrderStatus,
+        kitchenOrders,
+        acceptOrder,
+        rejectOrder,
+        newOrderNotification,
+        dismissNewOrderNotification,
+        pollKitchenOrders,
+        customerNotifications,
+        addCustomerNotification,
+        markCustomerNotificationRead,
+        markAllNotificationsRead,
+        unreadNotificationCount,
+        confirmReceptionOrder,
+        rejectReceptionOrder,
         loyalty,
         addLoyaltyPoints,
         isCartOpen,
@@ -859,8 +1392,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isProfileOpen,
         setIsProfileOpen,
         customerUser,
+        setCustomerUser,
         loginCustomer,
         logoutCustomer,
+        staffUser,
+        loginStaff,
+        logoutStaff,
         optimizeBudget
       }}
     >
@@ -876,4 +1413,3 @@ export const useRestaurant = () => {
   }
   return context;
 };
-
