@@ -75,6 +75,9 @@ export interface Order {
   loyaltyDiscount: number;
   total: number;
   paymentMethod: 'cash' | 'card' | 'online';
+  paymentStatus?: 'paid_online' | 'pay_at_table_cash' | 'pay_at_table_card';
+  transactionId?: string;
+  cardLast4?: string;
   status: OrderStatus;
   createdAt: string;
   estimatedMinutes: number;

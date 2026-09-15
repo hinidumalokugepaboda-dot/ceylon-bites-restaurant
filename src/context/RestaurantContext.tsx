@@ -81,7 +81,10 @@ interface RestaurantContextType {
     customerName: string,
     customerPhone: string,
     paymentMethod: 'cash' | 'card' | 'online',
-    notes?: string
+    notes?: string,
+    paymentStatus?: 'paid_online' | 'pay_at_table_cash' | 'pay_at_table_card',
+    transactionId?: string,
+    cardLast4?: string
   ) => Promise<Order>;
   activeTrackingOrder: Order | null;
   openOrderTracking: (order: Order) => void;
@@ -99,6 +102,14 @@ interface RestaurantContextType {
   setIsCheckoutOpen: (open: boolean) => void;
   isOrderConfirmationOpen: boolean;
   setIsOrderConfirmationOpen: (open: boolean) => void;
+  isPaymentGatewayOpen: boolean;
+  setIsPaymentGatewayOpen: (open: boolean) => void;
+  pendingCheckoutData: {
+    customerName: string;
+    customerPhone: string;
+    specialNotes: string;
+  } | null;
+  setPendingCheckoutData: (data: { customerName: string; customerPhone: string; specialNotes: string } | null) => void;
   isTableModalOpen: boolean;
   setIsTableModalOpen: (open: boolean) => void;
   isAuthModalOpen: boolean;
@@ -305,6 +316,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isOrderConfirmationOpen, setIsOrderConfirmationOpen] = useState(false);
+  const [isPaymentGatewayOpen, setIsPaymentGatewayOpen] = useState(false);
+  const [pendingCheckoutData, setPendingCheckoutData] = useState<{
+    customerName: string;
+    customerPhone: string;
+    specialNotes: string;
+  } | null>(null);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -482,9 +499,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     customerName: string,
     customerPhone: string,
     paymentMethod: 'cash' | 'card' | 'online',
-    notes = ''
+    notes = '',
+    paymentStatus?: 'paid_online' | 'pay_at_table_cash' | 'pay_at_table_card',
+    transactionId?: string,
+    cardLast4?: string
   ): Promise<Order> => {
     const orderNum = (1045 + orderHistory.length).toString();
+    const resolvedPaymentStatus = paymentStatus || (paymentMethod === 'online' ? 'paid_online' : paymentMethod === 'card' ? 'pay_at_table_card' : 'pay_at_table_cash');
+    const resolvedTxnId = transactionId || (paymentMethod === 'online' ? `TXN-CB-${Math.floor(100000 + Math.random() * 900000)}` : undefined);
+
     const newOrder: Order = {
       id: `ord-${orderNum}`,
       orderNumber: orderNum,
@@ -497,6 +520,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       loyaltyDiscount: appliedLoyaltyDiscount,
       total: finalCartTotal,
       paymentMethod,
+      paymentStatus: resolvedPaymentStatus,
+      transactionId: resolvedTxnId,
+      cardLast4,
       status: 'received',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
       estimatedMinutes: 18,
@@ -522,6 +548,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           discount: newOrder.discount + newOrder.loyaltyDiscount,
           total_amount: newOrder.total,
           payment_method: newOrder.paymentMethod,
+          payment_status: newOrder.paymentStatus,
+          transaction_id: newOrder.transactionId,
           special_notes: newOrder.specialNotes,
           need_ice_bucket: newOrder.needIceBucket,
           need_glassware: newOrder.needGlassware,
@@ -557,6 +585,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     clearCart();
     setIsCheckoutOpen(false);
     setIsCartOpen(false);
+    setIsPaymentGatewayOpen(false);
     setIsOrderConfirmationOpen(true);
     setActiveTrackingOrder(newOrder);
 
@@ -852,6 +881,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setIsCheckoutOpen,
         isOrderConfirmationOpen,
         setIsOrderConfirmationOpen,
+        isPaymentGatewayOpen,
+        setIsPaymentGatewayOpen,
+        pendingCheckoutData,
+        setPendingCheckoutData,
         isTableModalOpen,
         setIsTableModalOpen,
         isAuthModalOpen,

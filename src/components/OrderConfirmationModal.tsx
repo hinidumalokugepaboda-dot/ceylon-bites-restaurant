@@ -59,6 +59,38 @@ export const OrderConfirmationModal: React.FC = () => {
           </div>
         </div>
 
+        {/* Payment Status Notification Banner */}
+        <div className={`p-3.5 rounded-xl border text-xs text-left flex items-start gap-3 ${
+          activeOrder.paymentMethod === 'online'
+            ? 'bg-emerald-950/70 border-emerald-700/60 text-emerald-300'
+            : activeOrder.paymentMethod === 'card'
+            ? 'bg-blue-950/70 border-blue-700/60 text-blue-300'
+            : 'bg-amber-950/70 border-amber-700/60 text-amber-300'
+        }`}>
+          <div className="text-lg">
+            {activeOrder.paymentMethod === 'online' ? '✅' : activeOrder.paymentMethod === 'card' ? '💳' : '💵'}
+          </div>
+          <div className="flex-1 space-y-0.5">
+            <div className="font-bold flex items-center justify-between">
+              <span>
+                {activeOrder.paymentMethod === 'online' && 'Online Payment Completed'}
+                {activeOrder.paymentMethod === 'card' && 'Pay at Table: Card via POS'}
+                {activeOrder.paymentMethod === 'cash' && 'Pay at Table: Cash to Server'}
+              </span>
+              {activeOrder.transactionId && (
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900/60 px-1.5 py-0.5 rounded">
+                  {activeOrder.transactionId}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] opacity-90">
+              {activeOrder.paymentMethod === 'online' && 'Payment verified successfully. Total: Rs. ' + activeOrder.totalAmount.toLocaleString()}
+              {activeOrder.paymentMethod === 'card' && `A floor server with a wireless POS machine has been notified for Table #${activeOrder.tableNumber}.`}
+              {activeOrder.paymentMethod === 'cash' && `Cash payment recorded. Our cashier & floor waiter will collect cash at Table #${activeOrder.tableNumber}.`}
+            </p>
+          </div>
+        </div>
+
         {/* Action Button */}
         <div className="space-y-2">
           <button

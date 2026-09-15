@@ -297,11 +297,44 @@ export const OrderTracking: React.FC = () => {
             ))}
           </div>
 
-          <div className="pt-3 border-t border-zinc-800 flex justify-between text-sm font-black text-white">
-            <span>Paid via {order.paymentMethod.toUpperCase()}</span>
-            <span className="text-amber-400 font-heading text-base">
-              Total: Rs. {order.totalAmount.toLocaleString()}
-            </span>
+          <div className="pt-3 border-t border-zinc-800 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm font-black text-white">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                  order.paymentMethod === 'online'
+                    ? 'bg-emerald-950 border border-emerald-700/80 text-emerald-400'
+                    : order.paymentMethod === 'card'
+                    ? 'bg-blue-950 border border-blue-700/80 text-blue-400'
+                    : 'bg-amber-950 border border-amber-700/80 text-amber-400'
+                }`}>
+                  {order.paymentMethod === 'online' && '✅ Paid Online'}
+                  {order.paymentMethod === 'card' && '💳 Pay at Table (Card POS)'}
+                  {order.paymentMethod === 'cash' && '💵 Pay at Table (Cash)'}
+                </span>
+
+                {order.transactionId && (
+                  <span className="text-[11px] font-mono text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
+                    {order.transactionId}
+                  </span>
+                )}
+              </div>
+
+              <span className="text-amber-400 font-heading text-lg">
+                Total: Rs. {order.totalAmount.toLocaleString()}
+              </span>
+            </div>
+
+            {order.paymentMethod !== 'online' && (
+              <div className="text-[11px] text-zinc-400 bg-zinc-950/80 border border-zinc-800/80 p-2.5 rounded-xl flex items-center gap-2">
+                <span className="text-amber-400 font-bold">🔔 Server Notified:</span>
+                <span>
+                  {order.paymentMethod === 'card' 
+                    ? 'Floor staff is bringing a mobile POS card reader to Table #' + order.tableNumber + '.'
+                    : 'Cashier and floor waiter will settle cash bill at Table #' + order.tableNumber + '.'
+                  }
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

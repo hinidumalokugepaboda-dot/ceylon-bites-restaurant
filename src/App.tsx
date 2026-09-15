@@ -18,6 +18,7 @@ import { FoodModal } from './components/FoodModal';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderConfirmationModal } from './components/OrderConfirmationModal';
+import { PaymentGatewayModal } from './components/PaymentGatewayModal';
 import { TableModal } from './components/TableModal';
 import { CustomerAuthModal } from './components/CustomerAuthModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -109,6 +110,7 @@ export function App() {
       <FoodModal />
       <CartDrawer />
       <CheckoutModal />
+      <PaymentGatewayModal />
       <OrderConfirmationModal />
       <TableModal />
       <CustomerAuthModal />
