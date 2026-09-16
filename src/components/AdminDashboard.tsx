@@ -14,7 +14,9 @@ import {
   AlertCircle,
   ChefHat,
   RefreshCw,
-  Eye
+  Eye,
+  Store,
+  ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
 import { Order, OrderStatus } from '../types';
@@ -139,7 +141,7 @@ const OrderRow: React.FC<{ order: Order; onAdvance: (id: string) => void }> = ({
 // Admin Dashboard
 // ----------------------------------------------------------------
 export const AdminDashboard: React.FC = () => {
-  const { staffUser, logoutStaff, kitchenOrders, orderHistory, advanceOrderStatus, pollKitchenOrders } = useRestaurant();
+  const { staffUser, logoutStaff, kitchenOrders, orderHistory, advanceOrderStatus, pollKitchenOrders, setActiveView, loginAsRole } = useRestaurant();
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'menu' | 'staff'>('overview');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -184,17 +186,46 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => loginAsRole('kitchen')}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 text-xs font-semibold rounded-lg transition-all"
+                title="Switch to Kitchen Display"
+              >
+                <ChefHat className="w-3.5 h-3.5" />
+                <span>Kitchen</span>
+              </button>
+
+              <button
+                onClick={() => loginAsRole('reception')}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold rounded-lg transition-all"
+                title="Switch to Cashier / Reception"
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Cashier</span>
+              </button>
+
+              <button
+                onClick={() => setActiveView('home')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 border border-white/10 hover:border-[#c5a059]/40 text-gray-300 hover:text-white text-xs font-semibold rounded-lg transition-all"
+                title="Back to Customer Restaurant"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Storefront</span>
+              </button>
+
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 className="p-2 text-zinc-400 hover:text-white border border-white/10 rounded-lg transition-all"
+                title="Refresh Data"
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
               <button
                 onClick={logoutStaff}
-                className="flex items-center gap-1.5 px-3 py-2 border border-white/10 text-zinc-400 hover:text-white text-xs uppercase tracking-wider font-semibold rounded-lg transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 border border-white/10 text-zinc-400 hover:text-white text-xs uppercase tracking-wider font-semibold rounded-lg transition-all"
+                title="Logout"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Logout</span>

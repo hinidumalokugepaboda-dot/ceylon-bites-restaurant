@@ -158,6 +158,7 @@ interface RestaurantContextType {
   // Staff Auth
   staffUser: StaffUser;
   loginStaff: (staffCode: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginAsRole: (role: 'admin' | 'reception' | 'kitchen') => void;
   logoutStaff: () => void;
 
   // Budget Optimizer Helper
@@ -451,6 +452,19 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     return { success: false, message: 'Invalid Staff ID or password.' };
+  };
+
+  const loginAsRole = (role: 'admin' | 'reception' | 'kitchen') => {
+    const demo = DEMO_STAFF.find((s) => s.role === role) || {
+      staffId: role === 'admin' ? '1' : role === 'reception' ? '2' : '3',
+      staffCode: role === 'admin' ? 'ADMIN001' : role === 'reception' ? 'REC001' : 'KIT001',
+      name: role === 'admin' ? 'Saman Perera (Admin)' : role === 'reception' ? 'Dilini Fernando (Cashier/Reception)' : 'Nimal Kumara (Kitchen)',
+      role,
+      isLoggedIn: true
+    };
+    const user: StaffUser = { ...demo, isLoggedIn: true };
+    setStaffUser(user);
+    setActiveView(role);
   };
 
   const logoutStaff = () => {
@@ -1429,6 +1443,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         logoutCustomer,
         staffUser,
         loginStaff,
+        loginAsRole,
         logoutStaff,
         optimizeBudget
       }}

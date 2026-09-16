@@ -14,7 +14,10 @@ import {
   XCircle,
   FileText,
   Eye,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  ChefHat,
+  ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
 import type { Order, OrderStatus } from '../types';
@@ -263,7 +266,9 @@ export const ReceptionDashboard: React.FC = () => {
     orderHistory,
     confirmReceptionOrder,
     rejectReceptionOrder,
-    pollKitchenOrders
+    pollKitchenOrders,
+    setActiveView,
+    loginAsRole
   } = useRestaurant();
 
   const [activeSection, setActiveSection] = useState<SidebarSection>('dashboard');
@@ -406,7 +411,34 @@ export const ReceptionDashboard: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900">Reception Dashboard</h1>
             <p className="text-sm text-slate-500 mt-0.5">Manage incoming customer orders</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => loginAsRole('admin')}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold rounded-lg transition"
+              title="Switch to Admin Dashboard"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+              <span>Admin</span>
+            </button>
+
+            <button
+              onClick={() => loginAsRole('kitchen')}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 text-xs font-semibold rounded-lg transition"
+              title="Switch to Kitchen Display"
+            >
+              <ChefHat className="w-3.5 h-3.5 text-sky-700" />
+              <span>Kitchen</span>
+            </button>
+
+            <button
+              onClick={() => setActiveView('home')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-semibold rounded-lg transition"
+              title="Back to Customer Restaurant"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Storefront</span>
+            </button>
+
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
               <Clock className="w-4 h-4 text-slate-400" />
               <LiveClock />
@@ -416,7 +448,7 @@ export const ReceptionDashboard: React.FC = () => {
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </header>

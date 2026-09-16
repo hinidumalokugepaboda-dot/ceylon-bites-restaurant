@@ -14,7 +14,9 @@ import {
   ShieldCheck,
   ChefHat,
   LogOut,
-  Bell
+  Bell,
+  ChevronDown,
+  Store
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
 import CustomerNotificationPanel from './CustomerNotificationPanel';
@@ -36,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
     setSearchQuery,
     setActiveView,
     staffUser,
+    loginAsRole,
     logoutStaff,
     unreadNotificationCount
   } = useRestaurant();
@@ -43,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navSearchOpen, setNavSearchOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false);
   const [isCartBumping, setIsCartBumping] = useState(false);
 
   // Trigger bounce animation whenever cart items count increases
@@ -248,34 +252,129 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
               </span>
             </button>
 
-            {/* Staff Portal Button */}
-            {staffUser.isLoggedIn ? (
-              <div className="hidden sm:flex items-center gap-1.5">
-                <button
-                  onClick={handleStaffPortalClick}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#c5a059]/10 border border-[#c5a059]/40 text-[#c5a059] text-[10px] uppercase tracking-wider font-bold hover:bg-[#c5a059]/20 transition-all"
-                  title={`Go to ${staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Reception' : 'Kitchen'} Dashboard`}
-                >
-                  {staffUser.role === 'admin'
-                    ? <ShieldCheck className="w-3.5 h-3.5" />
-                    : staffUser.role === 'reception'
-                    ? <User className="w-3.5 h-3.5" />
-                    : <ChefHat className="w-3.5 h-3.5" />
-                  }
-                  <span>{staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Reception' : 'Kitchen'}</span>
-                </button>
-              </div>
-            ) : (
+            {/* Staff Dropdown Menu */}
+            <div className="relative">
               <button
-                id="btn-staff-login"
-                onClick={handleStaffPortalClick}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 border border-white/10 hover:border-[#c5a059]/40 text-gray-500 hover:text-[#c5a059] text-[10px] uppercase tracking-wider font-semibold transition-all"
-                title="Staff Login"
+                id="btn-staff-menu"
+                onClick={() => setStaffDropdownOpen(!staffDropdownOpen)}
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 border transition-all text-[10px] uppercase tracking-wider font-bold cursor-pointer ${
+                  staffUser.isLoggedIn
+                    ? 'bg-[#c5a059]/15 border-[#c5a059]/50 text-[#c5a059] hover:bg-[#c5a059]/25'
+                    : 'border-white/10 text-gray-400 hover:text-white hover:border-[#c5a059]/40 bg-[#121212]'
+                }`}
+                title="Staff Management & Dashboards"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Staff
+                {staffUser.isLoggedIn ? (
+                  staffUser.role === 'admin' ? <ShieldCheck className="w-3.5 h-3.5 text-[#c5a059]" /> :
+                  staffUser.role === 'reception' ? <Store className="w-3.5 h-3.5 text-[#c5a059]" /> :
+                  <ChefHat className="w-3.5 h-3.5 text-[#c5a059]" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-gray-400" />
+                )}
+                <span>
+                  {staffUser.isLoggedIn
+                    ? (staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Cashier' : 'Kitchen')
+                    : 'Staff'}
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${staffDropdownOpen ? 'rotate-180 text-[#c5a059]' : 'text-gray-500'}`} />
               </button>
-            )}
+
+              {staffDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-[#121215] border border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-2 border-b border-white/10 mb-1 flex items-center justify-between">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
+                      Staff Portals
+                    </div>
+                    {staffUser.isLoggedIn && (
+                      <span className="text-[9px] bg-[#c5a059]/20 text-[#c5a059] px-1.5 py-0.5 rounded font-bold uppercase">
+                        {staffUser.role}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <button
+                      id="btn-staff-go-admin"
+                      onClick={() => {
+                        loginAsRole('admin');
+                        setStaffDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/5 transition-colors group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#1a1712] border border-[#c5a059]/30 flex items-center justify-center text-[#c5a059] group-hover:scale-105 transition-transform">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white group-hover:text-[#c5a059]">Admin Dashboard</div>
+                        <div className="text-[10px] text-gray-400">Sales, analytics & staff</div>
+                      </div>
+                    </button>
+
+                    <button
+                      id="btn-staff-go-kitchen"
+                      onClick={() => {
+                        loginAsRole('kitchen');
+                        setStaffDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/5 transition-colors group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#141820] border border-sky-500/30 flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform">
+                        <ChefHat className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white group-hover:text-sky-400">Kitchen Display (KDS)</div>
+                        <div className="text-[10px] text-gray-400">Live orders & food preparation</div>
+                      </div>
+                    </button>
+
+                    <button
+                      id="btn-staff-go-cashier"
+                      onClick={() => {
+                        loginAsRole('reception');
+                        setStaffDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/5 transition-colors group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#141e17] border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+                        <Store className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white group-hover:text-emerald-400">Cashier & Reception</div>
+                        <div className="text-[10px] text-gray-400">Confirm orders & table bills</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-white/10 mt-1.5 pt-1.5 space-y-1">
+                    <button
+                      id="btn-staff-go-login"
+                      onClick={() => {
+                        setActiveView('login');
+                        setStaffDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Staff Login Screen</span>
+                    </button>
+
+                    {staffUser.isLoggedIn && (
+                      <button
+                        id="btn-staff-logout"
+                        onClick={() => {
+                          logoutStaff();
+                          setStaffDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-950/30 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Logout ({staffUser.name.split(' ')[0]})</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Cart Button with Animated Item Counter Badge */}
             <button
@@ -416,33 +515,70 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
             </button>
           </div>
 
-          {/* Staff portal in mobile menu */}
-          <div className="pt-1">
+          {/* Staff Section in Mobile Drawer */}
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            <div className="text-[10px] uppercase font-bold tracking-wider text-[#c5a059] px-1">
+              Staff Portals
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                id="mobile-staff-admin"
+                onClick={() => {
+                  loginAsRole('admin');
+                  setMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1.5 p-2.5 bg-[#141414] border border-white/10 hover:border-[#c5a059]/40 text-center rounded-xl cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#c5a059]" />
+                <span className="text-[10px] uppercase font-bold text-white">Admin</span>
+              </button>
+
+              <button
+                id="mobile-staff-kitchen"
+                onClick={() => {
+                  loginAsRole('kitchen');
+                  setMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1.5 p-2.5 bg-[#141414] border border-white/10 hover:border-sky-500/40 text-center rounded-xl cursor-pointer"
+              >
+                <ChefHat className="w-4 h-4 text-sky-400" />
+                <span className="text-[10px] uppercase font-bold text-white">Kitchen</span>
+              </button>
+
+              <button
+                id="mobile-staff-cashier"
+                onClick={() => {
+                  loginAsRole('reception');
+                  setMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1.5 p-2.5 bg-[#141414] border border-white/10 hover:border-emerald-500/40 text-center rounded-xl cursor-pointer"
+              >
+                <Store className="w-4 h-4 text-emerald-400" />
+                <span className="text-[10px] uppercase font-bold text-white">Cashier</span>
+              </button>
+            </div>
+
             {staffUser.isLoggedIn ? (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleStaffPortalClick}
-                  className="flex-1 flex items-center justify-center gap-2 p-3 bg-[#c5a059]/10 border border-[#c5a059]/30 text-xs uppercase tracking-wider font-bold text-[#c5a059]"
-                >
-                  {staffUser.role === 'admin'
-                    ? <><ShieldCheck className="w-3.5 h-3.5" /> Admin Dashboard</>
-                    : <><ChefHat className="w-3.5 h-3.5" /> Kitchen Dashboard</>}
-                </button>
-                <button
-                  onClick={() => { logoutStaff(); setMobileMenuOpen(false); }}
-                  className="p-3 bg-[#141414] border border-white/10 text-zinc-400 hover:text-white"
-                  title="Staff Logout"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  logoutStaff();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 p-2.5 bg-red-950/30 border border-red-800/40 rounded-xl text-xs font-bold text-red-400"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout Staff ({staffUser.name.split(' ')[0]})</span>
+              </button>
             ) : (
               <button
-                onClick={handleStaffPortalClick}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-[#141414] border border-white/10 text-xs uppercase tracking-wider font-semibold text-gray-500 hover:text-[#c5a059]"
+                onClick={() => {
+                  setActiveView('login');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 p-2 bg-[#141414] border border-white/10 rounded-xl text-xs font-semibold text-gray-500 hover:text-white"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Staff Login
+                <span>Staff Login Screen</span>
               </button>
             )}
           </div>

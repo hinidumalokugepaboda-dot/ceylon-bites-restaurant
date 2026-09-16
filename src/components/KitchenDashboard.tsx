@@ -13,7 +13,10 @@ import {
   User,
   UtensilsCrossed,
   X,
-  XCircle
+  XCircle,
+  ShieldCheck,
+  Store,
+  ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
 import { Order, OrderStatus } from '../types';
@@ -253,7 +256,9 @@ export const KitchenDashboard: React.FC = () => {
     pollKitchenOrders,
     newOrderNotification,
     dismissNewOrderNotification,
-    advanceOrderStatus
+    advanceOrderStatus,
+    setActiveView,
+    loginAsRole
   } = useRestaurant();
 
   const [activeSection, setActiveSection] = useState<SidebarSection>('dashboard');
@@ -415,7 +420,34 @@ export const KitchenDashboard: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900">Kitchen Dashboard</h1>
             <p className="text-sm text-slate-500 mt-0.5">Manage kitchen orders and preparation</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => loginAsRole('admin')}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold rounded-lg transition"
+              title="Switch to Admin Dashboard"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+              <span>Admin</span>
+            </button>
+
+            <button
+              onClick={() => loginAsRole('reception')}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold rounded-lg transition"
+              title="Switch to Cashier / Reception"
+            >
+              <Store className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Cashier</span>
+            </button>
+
+            <button
+              onClick={() => setActiveView('home')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-semibold rounded-lg transition"
+              title="Back to Customer Restaurant"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Storefront</span>
+            </button>
+
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
               <Clock className="w-4 h-4 text-slate-400" />
               <LiveClock />
@@ -434,7 +466,7 @@ export const KitchenDashboard: React.FC = () => {
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </header>
