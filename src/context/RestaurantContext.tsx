@@ -139,6 +139,8 @@ interface RestaurantContextType {
   setPendingCheckoutData: (data: { customerName: string; customerPhone: string; specialNotes: string } | null) => void;
   isTableModalOpen: boolean;
   setIsTableModalOpen: (open: boolean) => void;
+  isStaffModalOpen: boolean;
+  setIsStaffModalOpen: (open: boolean) => void;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   isProfileOpen: boolean;
@@ -374,6 +376,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     specialNotes: string;
   } | null>(null);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -1433,6 +1436,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setPendingCheckoutData,
         isTableModalOpen,
         setIsTableModalOpen,
+        isStaffModalOpen,
+        setIsStaffModalOpen,
         isAuthModalOpen,
         setIsAuthModalOpen,
         isProfileOpen,

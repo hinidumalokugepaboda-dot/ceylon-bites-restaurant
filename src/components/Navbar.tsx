@@ -32,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
     finalCartTotal,
     setIsCartOpen,
     setIsTableModalOpen,
+    setIsStaffModalOpen,
     setIsAuthModalOpen,
     setIsProfileOpen,
     customerUser,
@@ -46,7 +47,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navSearchOpen, setNavSearchOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false);
   const [isCartBumping, setIsCartBumping] = useState(false);
 
   // Trigger bounce animation whenever cart items count increases
@@ -63,19 +63,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
     setMobileMenuOpen(false);
   };
 
-  const handleStaffPortalClick = () => {
-    if (staffUser.isLoggedIn) {
-      const nextView = staffUser.role === 'admin' ? 'admin' : staffUser.role === 'reception' ? 'reception' : 'kitchen';
-      setActiveView(nextView);
-    } else {
-      setActiveView('login');
-    }
-    setMobileMenuOpen(false);
-  };
-
   return (
-    <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 w-full overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 w-full">
+      <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20 gap-2 sm:gap-4">
           {/* Logo */}
           <div 
@@ -252,129 +242,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
               </span>
             </button>
 
-            {/* Staff Dropdown Menu */}
-            <div className="relative">
-              <button
-                id="btn-staff-menu"
-                onClick={() => setStaffDropdownOpen(!staffDropdownOpen)}
-                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 border transition-all text-[10px] uppercase tracking-wider font-bold cursor-pointer ${
-                  staffUser.isLoggedIn
-                    ? 'bg-[#c5a059]/15 border-[#c5a059]/50 text-[#c5a059] hover:bg-[#c5a059]/25'
-                    : 'border-white/10 text-gray-400 hover:text-white hover:border-[#c5a059]/40 bg-[#121212]'
-                }`}
-                title="Staff Management & Dashboards"
-              >
-                {staffUser.isLoggedIn ? (
-                  staffUser.role === 'admin' ? <ShieldCheck className="w-3.5 h-3.5 text-[#c5a059]" /> :
-                  staffUser.role === 'reception' ? <Store className="w-3.5 h-3.5 text-[#c5a059]" /> :
-                  <ChefHat className="w-3.5 h-3.5 text-[#c5a059]" />
-                ) : (
-                  <ShieldCheck className="w-3.5 h-3.5 text-gray-400" />
-                )}
-                <span>
-                  {staffUser.isLoggedIn
-                    ? (staffUser.role === 'admin' ? 'Admin' : staffUser.role === 'reception' ? 'Cashier' : 'Kitchen')
-                    : 'Staff'}
-                </span>
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${staffDropdownOpen ? 'rotate-180 text-[#c5a059]' : 'text-gray-500'}`} />
-              </button>
-
-              {staffDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-[#121215] border border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-3 py-2 border-b border-white/10 mb-1 flex items-center justify-between">
-                    <div className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
-                      Staff Portals
-                    </div>
-                    {staffUser.isLoggedIn && (
-                      <span className="text-[9px] bg-[#c5a059]/20 text-[#c5a059] px-1.5 py-0.5 rounded font-bold uppercase">
-                        {staffUser.role}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <button
-                      id="btn-staff-go-admin"
-                      onClick={() => {
-                        loginAsRole('admin');
-                        setStaffDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/5 transition-colors group cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[#1a1712] border border-[#c5a059]/30 flex items-center justify-center text-[#c5a059] group-hover:scale-105 transition-transform">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white group-hover:text-[#c5a059]">Admin Dashboard</div>
-                        <div className="text-[10px] text-gray-400">Sales, analytics & staff</div>
-                      </div>
-                    </button>
-
-                    <button
-                      id="btn-staff-go-kitchen"
-                      onClick={() => {
-                        loginAsRole('kitchen');
-                        setStaffDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/5 transition-colors group cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[#141820] border border-sky-500/30 flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform">
-                        <ChefHat className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white group-hover:text-sky-400">Kitchen Display (KDS)</div>
-                        <div className="text-[10px] text-gray-400">Live orders & food preparation</div>
-                      </div>
-                    </button>
-
-                    <button
-                      id="btn-staff-go-cashier"
-                      onClick={() => {
-                        loginAsRole('reception');
-                        setStaffDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/5 transition-colors group cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[#141e17] border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                        <Store className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white group-hover:text-emerald-400">Cashier & Reception</div>
-                        <div className="text-[10px] text-gray-400">Confirm orders & table bills</div>
-                      </div>
-                    </button>
-                  </div>
-
-                  <div className="border-t border-white/10 mt-1.5 pt-1.5 space-y-1">
-                    <button
-                      id="btn-staff-go-login"
-                      onClick={() => {
-                        setActiveView('login');
-                        setStaffDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5 text-gray-500" />
-                      <span>Staff Login Screen</span>
-                    </button>
-
-                    {staffUser.isLoggedIn && (
-                      <button
-                        id="btn-staff-logout"
-                        onClick={() => {
-                          logoutStaff();
-                          setStaffDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-950/30 transition-colors cursor-pointer"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>Logout ({staffUser.name.split(' ')[0]})</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
+            {/* Staff Portal Popup Trigger */}
+            <button
+              id="btn-staff-modal-trigger"
+              onClick={() => setIsStaffModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border transition-all text-[11px] uppercase tracking-wider font-bold rounded-lg cursor-pointer shrink-0 ${
+                staffUser.isLoggedIn
+                  ? 'bg-[#c5a059]/15 border-[#c5a059]/60 text-[#c5a059] hover:bg-[#c5a059]/25 shadow-sm'
+                  : 'bg-[#141414] hover:bg-[#1c1c1c] border-white/10 hover:border-[#c5a059]/50 text-gray-300 hover:text-white'
+              }`}
+              title="Staff Portal & Role Login"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#c5a059]" />
+              <span>Staff</span>
+              {staffUser.isLoggedIn && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               )}
-            </div>
+            </button>
 
             {/* Cart Button with Animated Item Counter Badge */}
             <button
@@ -572,13 +456,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
             ) : (
               <button
                 onClick={() => {
-                  setActiveView('login');
+                  setIsStaffModalOpen(true);
                   setMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 p-2 bg-[#141414] border border-white/10 rounded-xl text-xs font-semibold text-gray-500 hover:text-white"
+                className="w-full flex items-center justify-center gap-2 p-2.5 bg-[#141414] hover:bg-[#1f1f1f] border border-[#c5a059]/40 rounded-xl text-xs font-bold text-[#c5a059]"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Staff Login Screen</span>
+                <span>Staff Portal & Login</span>
               </button>
             )}
           </div>

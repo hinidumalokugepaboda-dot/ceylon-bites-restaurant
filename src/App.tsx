@@ -24,6 +24,7 @@ import { CustomerAuthModal } from './components/CustomerAuthModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { OrderTracking } from './components/OrderTracking';
 import { StickyBudgetTracker } from './components/StickyBudgetTracker';
+import { StaffLoginModal } from './components/StaffLoginModal';
 // Staff pages
 import { StaffLoginPage } from './components/StaffLoginPage';
 import { KitchenDashboard } from './components/KitchenDashboard';
@@ -157,6 +158,7 @@ export function App() {
       <OrderConfirmationModal />
       <TableModal />
       <CustomerAuthModal />
+      <StaffLoginModal />
       <MobileBottomNav onNavigate={handleNavigate} />
     </div>
   );
