@@ -7,19 +7,15 @@ import {
   Menu as MenuIcon, 
   X, 
   Sparkles,
-  Search,
   Percent,
   Award,
   Info,
   ShieldCheck,
   ChefHat,
   LogOut,
-  Bell,
-  ChevronDown,
   Store
 } from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
-import CustomerNotificationPanel from './CustomerNotificationPanel';
 
 interface NavbarProps {
   onNavigate: (sectionId: string) => void;
@@ -29,24 +25,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
   const {
     tableNumber,
     cartTotalCount,
-    finalCartTotal,
     setIsCartOpen,
     setIsTableModalOpen,
     setIsStaffModalOpen,
     setIsAuthModalOpen,
     setIsProfileOpen,
     customerUser,
-    setSearchQuery,
     setActiveView,
     staffUser,
     loginAsRole,
-    logoutStaff,
-    unreadNotificationCount
+    logoutStaff
   } = useRestaurant();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [navSearchOpen, setNavSearchOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isCartBumping, setIsCartBumping] = useState(false);
 
   // Trigger bounce animation whenever cart items count increases
@@ -173,12 +164,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
           </nav>
 
           {/* Right Action Icons (Always visible & never clipped) */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Table Badge */}
             <button
               id="btn-table-badge"
               onClick={() => setIsTableModalOpen(true)}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[#121212] hover:bg-[#1a1a1a] border border-white/10 hover:border-[#c5a059]/50 text-[10px] uppercase tracking-widest font-semibold text-gray-300 transition-all cursor-pointer"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-[#121212] hover:bg-[#1a1a1a] border border-white/10 hover:border-[#c5a059]/50 text-[10px] sm:text-[11px] uppercase tracking-widest font-semibold text-gray-300 transition-all cursor-pointer rounded-lg"
               title="Click to change table or view QR status"
             >
               <QrCode className="w-3.5 h-3.5 text-[#c5a059]" />
@@ -187,41 +178,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                 #{tableNumber}
               </span>
             </button>
-
-            {/* Quick Search */}
-            <button
-              id="btn-nav-search"
-              onClick={() => {
-                handleNavClick('menu');
-                setNavSearchOpen(!navSearchOpen);
-              }}
-              className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 transition-all hidden sm:flex border border-white/5 cursor-pointer"
-              aria-label="Search food"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-
-            {/* Notification Bell */}
-            <div className="relative">
-              <button
-                id="btn-nav-notifications"
-                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className="relative p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 transition-all border border-white/5 cursor-pointer flex items-center justify-center"
-                aria-label="Notifications"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#c5a059] text-[#0a0a0a] text-[9px] font-black flex items-center justify-center shadow-md animate-pulse">
-                    {unreadNotificationCount}
-                  </span>
-                )}
-              </button>
-
-              <CustomerNotificationPanel
-                isOpen={isNotificationOpen}
-                onClose={() => setIsNotificationOpen(false)}
-              />
-            </div>
 
             {/* Account Profile / Login */}
             <button
@@ -233,11 +189,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                   setIsAuthModalOpen(true);
                 }
               }}
-              className="flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 text-gray-300 hover:text-white hover:bg-white/5 border border-white/5 transition-all text-xs font-medium cursor-pointer"
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 text-gray-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-[#c5a059]/40 rounded-lg transition-all text-xs font-medium cursor-pointer"
               aria-label="Account profile"
             >
               <User className="w-3.5 h-3.5 text-gray-400" />
-              <span className="hidden md:inline truncate max-w-[80px] uppercase tracking-wider text-[10px]">
+              <span className="hidden md:inline truncate max-w-[80px] uppercase tracking-wider text-[10px] font-semibold">
                 {customerUser.isLoggedIn ? customerUser.name.split(' ')[0] : 'Sign In'}
               </span>
             </button>
@@ -246,7 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
             <button
               id="btn-staff-modal-trigger"
               onClick={() => setIsStaffModalOpen(true)}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border transition-all text-[11px] uppercase tracking-wider font-bold rounded-lg cursor-pointer shrink-0 ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border transition-all text-[10px] sm:text-[11px] uppercase tracking-wider font-bold rounded-lg cursor-pointer shrink-0 ${
                 staffUser.isLoggedIn
                   ? 'bg-[#c5a059]/15 border-[#c5a059]/60 text-[#c5a059] hover:bg-[#c5a059]/25 shadow-sm'
                   : 'bg-[#141414] hover:bg-[#1c1c1c] border-white/10 hover:border-[#c5a059]/50 text-gray-300 hover:text-white'
@@ -264,8 +220,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
             <button
               id="btn-nav-cart"
               onClick={() => setIsCartOpen(true)}
-              className={`relative flex items-center gap-1.5 sm:gap-2 bg-[#c5a059] hover:bg-[#d6b26b] text-black px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-extrabold shadow-lg transition-all duration-300 transform active:scale-95 cursor-pointer shrink-0 ring-1 ring-[#c5a059]/40 ${
-                isCartBumping ? 'scale-110 ring-4 ring-[#c5a059]/80 shadow-[#c5a059]/50' : ''
+              className={`relative flex items-center gap-1.5 sm:gap-2 bg-[#c5a059] hover:bg-[#d6b26b] text-black px-3.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-extrabold rounded-lg shadow-lg transition-all duration-300 transform active:scale-95 cursor-pointer shrink-0 ring-1 ring-[#c5a059]/40 ${
+                isCartBumping ? 'scale-105 ring-4 ring-[#c5a059]/80 shadow-[#c5a059]/50' : ''
               }`}
               aria-label="View Cart"
             >
@@ -287,7 +243,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
             <button
               id="btn-mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 lg:hidden cursor-pointer shrink-0"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 lg:hidden cursor-pointer shrink-0 rounded-lg"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <MenuIcon className="w-5 h-5" />}
@@ -295,28 +251,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
-
-      {/* Nav Search Overlay dropdown if toggled */}
-      {navSearchOpen && (
-        <div className="bg-[#111111] border-b border-white/10 px-4 py-3 sm:px-6">
-          <div className="max-w-3xl mx-auto flex items-center gap-2">
-            <Search className="w-4 h-4 text-[#c5a059]" />
-            <input
-              type="text"
-              placeholder="Search chicken kottu, hot butter cuttlefish, devilled dishes..."
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#c5a059]"
-              autoFocus
-            />
-            <button
-              onClick={() => setNavSearchOpen(false)}
-              className="text-[10px] uppercase tracking-wider text-gray-400 hover:text-white px-2 py-1"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
