@@ -18,10 +18,15 @@ export const TableModal: React.FC = () => {
 
   const handleSave = () => {
     setTableNumber(tempTable);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('table', tempTable);
+      window.history.replaceState(null, '', url.toString());
+    }
     setIsTableModalOpen(false);
   };
 
-  const tableList = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12', '14', '15', '18', '20'];
+  const tableList = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -31,14 +36,14 @@ export const TableModal: React.FC = () => {
       >
         <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
           <div className="flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-amber-500" />
+            <QrCode className="w-5 h-5 text-[#c5a059]" />
             <h3 className="text-base font-bold text-white font-heading">
               Select Dining Table & Order Type
             </h3>
           </div>
           <button
             onClick={() => setIsTableModalOpen(false)}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white bg-zinc-900"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700"
           >
             <X className="w-4 h-4" />
           </button>
@@ -55,8 +60,8 @@ export const TableModal: React.FC = () => {
               onClick={() => setOrderType('dine-in')}
               className={`p-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
                 orderType === 'dine-in'
-                  ? 'bg-amber-500 text-black border-amber-400 shadow'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                  ? 'bg-[#c5a059] text-black border-[#c5a059] shadow'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
               }`}
             >
               <UtensilsCrossed className="w-4 h-4" />
@@ -68,8 +73,8 @@ export const TableModal: React.FC = () => {
               onClick={() => setOrderType('takeaway')}
               className={`p-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
                 orderType === 'takeaway'
-                  ? 'bg-amber-500 text-black border-amber-400 shadow'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                  ? 'bg-[#c5a059] text-black border-[#c5a059] shadow'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
               }`}
             >
               <ShoppingBag className="w-4 h-4" />
@@ -78,12 +83,12 @@ export const TableModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Table Selector Grid */}
+        {/* Table Selector Grid (Strictly 10 Dining Tables) */}
         {orderType === 'dine-in' && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Select Your Table Number</span>
-              <span className="text-amber-400">Current: Table #{tempTable}</span>
+              <span>Select Your Table (1 - 10)</span>
+              <span className="text-[#c5a059]">Active: Table #{tempTable}</span>
             </label>
 
             <div className="grid grid-cols-5 gap-2">
@@ -92,36 +97,26 @@ export const TableModal: React.FC = () => {
                   key={t}
                   type="button"
                   onClick={() => setTempTable(t)}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                  className={`py-3 rounded-xl text-xs font-bold border transition-all ${
                     tempTable === t
-                      ? 'bg-amber-500 text-black border-amber-400 shadow'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                      ? 'bg-[#c5a059] text-black border-[#c5a059] shadow-lg scale-105 font-black'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white'
                   }`}
                 >
                   #{t}
                 </button>
               ))}
             </div>
-
-            <div className="pt-2">
-              <label className="text-[11px] text-zinc-400 block mb-1">
-                Or type custom table number:
-              </label>
-              <input
-                type="text"
-                value={tempTable}
-                onChange={(e) => setTempTable(e.target.value)}
-                placeholder="e.g. 12"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
-              />
-            </div>
+            <p className="text-[11px] text-zinc-500 pt-1">
+              Tables are bound dynamically via QR code or manual selection above.
+            </p>
           </div>
         )}
 
         {/* Action Button */}
         <button
           onClick={handleSave}
-          className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow flex items-center justify-center gap-1.5"
+          className="w-full py-3 bg-[#c5a059] hover:bg-[#d6b26b] text-black font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow flex items-center justify-center gap-1.5"
         >
           <Check className="w-4 h-4 stroke-[3]" />
           <span>Confirm Table #{tempTable}</span>

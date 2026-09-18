@@ -7,7 +7,6 @@ export const CATEGORIES: { id: MenuCategory; name: string; iconName: string; des
   { id: 'fried-rice', name: 'Fried Rice', iconName: 'Soup', description: 'Wok-charred Sri Lankan style fragrant rice' },
   { id: 'noodles', name: 'Noodles', iconName: 'ChefHat', description: 'Wok-tossed noodles with house chili paste & aromatics' },
   { id: 'chicken-bites', name: 'Chicken & Bites', iconName: 'Drumstick', description: 'Crispy wings, loaded fries & finger bites for drinks' },
-  { id: 'sharing', name: 'Sharing Platters', iconName: 'Users', description: 'Generous combination boards designed for the whole table' },
   { id: 'desserts', name: 'Desserts', iconName: 'IceCream', description: 'Authentic watalappam, molten lava cakes & puddings' },
   { id: 'drinks', name: 'Non-Alcoholic Drinks', iconName: 'GlassWater', description: 'Fresh lime, chasers, ginger beer & tropical coolers' },
 ];
@@ -22,27 +21,6 @@ export const createItemPortions = (id: string, price: number, category: MenuCate
         price: price,
         servesCount: 1,
         description: 'Single Serving (1 Person)'
-      }
-    ];
-  }
-
-  if (category === 'sharing') {
-    return [
-      {
-        id: `${id}-portion-m`,
-        portionName: 'Medium (M)',
-        portionCode: 'M',
-        price: Math.round((price * 0.75) / 50) * 50,
-        servesCount: 2,
-        description: 'Sharing Platter (Serves 2)'
-      },
-      {
-        id: `${id}-portion-l`,
-        portionName: 'Large (L)',
-        portionCode: 'L',
-        price: price,
-        servesCount: 4,
-        description: 'Full Feast Platter (Serves 4)'
       }
     ];
   }
@@ -829,100 +807,6 @@ const BASE_FOOD_ITEMS: Omit<FoodItem, 'portions'>[] = [
     pairingItemIds: ['bites-wings-spicy', 'drink-passion-fruit']
   },
 
-  // ---------------- SHARING PLATTERS ----------------
-  {
-    id: 'sharing-mixed-chicken',
-    name: 'Mixed Chicken Feast Platter',
-    category: 'sharing',
-    description: 'The ultimate group feast: Spicy chicken wings (4 pcs), devilled chicken bites, crispy chicken strips (4 pcs), loaded cheese fries, and 3 house dipping sauces.',
-    price: 2600,
-    image: '/assets/images/foods/mixed-chicken-platter.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    spiceLevel: 'spicy',
-    spicy: true,
-    vegetarian: false,
-    popular: true,
-    chefSpecial: true,
-    portionInfo: 'Feeds 3-4 People Comfortably',
-    prepTimeMinutes: 20,
-    ingredients: ['Spicy Wings', 'Devilled Chicken', 'Panko Strips', 'Loaded Fries', '3 Signature Dips'],
-    tags: ['Group Favorite', 'Great Value', 'Party Board'],
-    pairingItemIds: ['drink-fresh-lime', 'kottu-cheese-chicken', 'drink-ginger-beer']
-  },
-  {
-    id: 'sharing-seafood-board',
-    name: 'Ocean Sizzle Seafood Platter',
-    category: 'sharing',
-    description: 'Our crown jewel sharing board: Crispy Hot Butter Cuttlefish, Chilli Garlic Jumbo Prawns, Devilled Calamari, Spicy Fried Fish fillets, garlic bread, and dips.',
-    price: 3400,
-    image: '/assets/images/foods/seafood-platter.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=800&q=80',
-    spiceLevel: 'spicy',
-    spicy: true,
-    vegetarian: false,
-    popular: true,
-    chefSpecial: true,
-    portionInfo: 'Feeds 3-4 Seafood Lovers',
-    prepTimeMinutes: 22,
-    ingredients: ['Hot Butter Cuttlefish', 'Garlic Prawns', 'Devilled Calamari', 'Spicy Fish', 'Garlic Toasts'],
-    tags: ['Chef Signature', 'Ultimate Seafood Experience'],
-    pairingItemIds: ['drink-fresh-lime', 'rice-seafood']
-  },
-  {
-    id: 'sharing-kottu-platter',
-    name: 'Kottu Master Sharing Platter',
-    category: 'sharing',
-    description: 'A monster duo of Cheese Chicken Kottu and Sizzling Seafood Kottu, served with a bowl of Devilled Sausages, crispy bullseye eggs, and spicy gravy pots.',
-    price: 2800,
-    image: '/assets/images/foods/kottu-sharing-platter.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1541832676-9b763b0239ab?auto=format&fit=crop&w=800&q=80',
-    spiceLevel: 'spicy',
-    spicy: true,
-    vegetarian: false,
-    popular: true,
-    portionInfo: 'Feeds 3-4 People',
-    prepTimeMinutes: 20,
-    ingredients: ['Cheese Chicken Kottu', 'Seafood Kottu', 'Devilled Sausages', 'Eggs', 'Curry Gravies'],
-    tags: ['Kottu Lovers', 'Big Portions'],
-    pairingItemIds: ['drink-ginger-beer', 'drink-passion-fruit']
-  },
-  {
-    id: 'sharing-wings-board',
-    name: 'Mega Chicken Wings Platter',
-    category: 'sharing',
-    description: '16 crispy wings split across 4 flavors: Spicy Ceylon Chili, Sweet Honey Glaze, Garlic Pepper Herb, and Sizzling Devil Glaze, with celery and ranch.',
-    price: 2200,
-    image: '/assets/images/foods/chicken-wings-platter.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=800&q=80',
-    spiceLevel: 'spicy',
-    spicy: true,
-    vegetarian: false,
-    popular: false,
-    portionInfo: '16 Jumbo Wings (Feeds 3-4)',
-    prepTimeMinutes: 18,
-    ingredients: ['16 Wings', '4 Sauces', 'Ranch Dip', 'Lime & Herbs'],
-    tags: ['Wings Galore', 'Drinking Platter'],
-    pairingItemIds: ['drink-fresh-lime', 'bites-fries-loaded']
-  },
-  {
-    id: 'sharing-mixed-bites',
-    name: 'Ceylon Street Bites Platter',
-    category: 'sharing',
-    description: 'A vibrant tasting board of Spicy Chicken Bites, Devilled Sausages, Fried Calamari Rings, and Spicy Masala Fries with duo dipping sauces.',
-    price: 2400,
-    image: '/assets/images/foods/mixed-bites-platter.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
-    spiceLevel: 'spicy',
-    spicy: true,
-    vegetarian: false,
-    popular: true,
-    portionInfo: 'Feeds 3-4 Hangout Friends',
-    prepTimeMinutes: 18,
-    ingredients: ['Chicken Bites', 'Devilled Sausages', 'Calamari', 'Masala Fries', 'Dips'],
-    tags: ['Hangout Board', 'Top Seller'],
-    pairingItemIds: ['drink-passion-fruit', 'drink-ginger-beer']
-  },
-
   // ---------------- DESSERTS ----------------
   {
     id: 'dessert-watalappam',
@@ -1275,16 +1159,16 @@ export const SPECIAL_OFFERS: SpecialOffer[] = [
   },
   {
     id: 'offer-group-bites',
-    title: 'GROUP HANGOUT BITES',
+    title: 'SPICY WINGS COMBO',
     badge: 'Party Platter',
-    tagline: 'Mixed Chicken Feast Platter Discount',
-    originalPrice: 2600,
-    discountedPrice: 2250,
-    description: 'The ultimate bites board with wings, devilled chicken, panko strips, and loaded fries. Bring your bottle, we supply the feast!',
-    image: '/assets/images/foods/mixed-chicken-platter.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+    tagline: 'Spicy Chicken Wings Feast',
+    originalPrice: 1800,
+    discountedPrice: 1550,
+    description: 'Hot Ceylon spicy wings tossed with honey glaze and toasted sesame seeds, served with loaded fries.',
+    image: '/assets/images/foods/spicy-chicken-wings.jpg',
+    fallbackImage: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=800&q=80',
     code: 'GROUPFEAST',
-    applicableDishId: 'sharing-mixed-chicken',
+    applicableDishId: 'bites-wings-spicy',
     validUntil: 'Available All Evening'
   }
 ];

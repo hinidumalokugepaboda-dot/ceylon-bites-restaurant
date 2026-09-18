@@ -1,23 +1,57 @@
-import React, { useState } from 'react';
-import { Flame, Lock, User, Eye, EyeOff, ArrowLeft, ChefHat, ShieldCheck, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Flame, 
+  Lock, 
+  User, 
+  Eye, 
+  EyeOff, 
+  ArrowLeft, 
+  ChefHat, 
+  ShieldCheck, 
+  AlertCircle,
+  Store,
+  CheckCircle2,
+  ArrowRight
+} from 'lucide-react';
 import { useRestaurant } from '../context/RestaurantContext';
+import { StaffRole } from '../types';
 
 export const StaffLoginPage: React.FC = () => {
   const { loginStaff, setActiveView, staffUser } = useRestaurant();
 
-  const [staffCode, setStaffCode] = useState('');
-  const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'kitchen' | 'cashier'>('admin');
+  const [staffCode, setStaffCode] = useState('ADMIN001');
+  const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // If already logged in, redirect
-  React.useEffect(() => {
+  // If already logged in, redirect to assigned view
+  useEffect(() => {
     if (staffUser.isLoggedIn) {
-      const nextView = staffUser.role === 'admin' ? 'admin' : staffUser.role === 'reception' ? 'reception' : 'kitchen';
+      const nextView = staffUser.role === 'admin' 
+        ? 'admin' 
+        : staffUser.role === 'kitchen' 
+        ? 'kitchen' 
+        : 'cashier';
       setActiveView(nextView);
     }
   }, [staffUser.isLoggedIn, staffUser.role, setActiveView]);
+
+  const handleRoleSelect = (role: 'admin' | 'kitchen' | 'cashier') => {
+    setSelectedRole(role);
+    setError('');
+    if (role === 'admin') {
+      setStaffCode('ADMIN001');
+      setPassword('admin123');
+    } else if (role === 'kitchen') {
+      setStaffCode('KIT001');
+      setPassword('kitchen123');
+    } else if (role === 'cashier') {
+      setStaffCode('CASH001');
+      setPassword('cashier123');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,11 +68,12 @@ export const StaffLoginPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = await loginStaff(staffCode, password);
+      const result = await loginStaff(staffCode.trim(), password, selectedRole);
       if (result.success) {
-        // Context will update staffUser; the useEffect above will redirect
+        // Redirection will occur via the useEffect or direct view setter
+        setActiveView(selectedRole);
       } else {
-        setError(result.message || 'Invalid credentials. Please try again.');
+        setError(result.message || 'Invalid credentials or role mismatch. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -47,7 +82,7 @@ export const StaffLoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
-      {/* Top bar — consistent with restaurant nav */}
+      {/* Top bar */}
       <div className="border-b border-white/10 bg-[#0a0a0a]/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
@@ -62,7 +97,7 @@ export const StaffLoginPage: React.FC = () => {
                 CEYLON <span className="text-[#c5a059]">BITES</span>
               </span>
               <p className="text-[9px] uppercase tracking-[0.25em] text-gray-500 hidden sm:block">
-                Staff Portal
+                Staff Authentication Portal
               </p>
             </div>
           </div>
@@ -70,7 +105,7 @@ export const StaffLoginPage: React.FC = () => {
           {/* Back to restaurant */}
           <button
             onClick={() => setActiveView('home')}
-            className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-gray-400 hover:text-white transition-all"
+            className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-gray-400 hover:text-white transition-all cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to Restaurant
@@ -80,47 +115,116 @@ export const StaffLoginPage: React.FC = () => {
 
       {/* Login content */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-xl space-y-6">
 
           {/* Header */}
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-[#141414] border border-[#c5a059]/30 flex items-center justify-center mx-auto shadow-lg">
-              <ShieldCheck className="w-8 h-8 text-[#c5a059]" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Staff Login
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Sign in with your Staff ID and password
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              Restaurant Staff Gateway
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-400">
+              Select your role access card and sign in with your Staff ID & Password
+            </p>
+          </div>
+
+          {/* Three Distinct Role Selection Access Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 1. Admin */}
+            <button
+              type="button"
+              onClick={() => handleRoleSelect('admin')}
+              className={`p-4 rounded-2xl border text-left transition-all relative cursor-pointer ${
+                selectedRole === 'admin'
+                  ? 'bg-[#181510] border-[#c5a059] shadow-lg shadow-[#c5a059]/10 ring-1 ring-[#c5a059]'
+                  : 'bg-[#111114] border-white/10 hover:border-white/20 opacity-80 hover:opacity-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="w-10 h-10 rounded-xl bg-[#c5a059]/15 border border-[#c5a059]/30 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-[#c5a059]" />
+                </div>
+                {selectedRole === 'admin' && (
+                  <CheckCircle2 className="w-4 h-4 text-[#c5a059]" />
+                )}
+              </div>
+              <div className="text-sm font-bold text-white">Admin</div>
+              <div className="text-[10px] uppercase font-bold tracking-wider text-[#c5a059] mt-0.5">
+                /admin
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">
+                Sales, RBAC Staff Accounts & System Management
               </p>
-            </div>
+            </button>
+
+            {/* 2. Kitchen */}
+            <button
+              type="button"
+              onClick={() => handleRoleSelect('kitchen')}
+              className={`p-4 rounded-2xl border text-left transition-all relative cursor-pointer ${
+                selectedRole === 'kitchen'
+                  ? 'bg-[#0f1720] border-sky-500 shadow-lg shadow-sky-500/10 ring-1 ring-sky-500'
+                  : 'bg-[#111114] border-white/10 hover:border-white/20 opacity-80 hover:opacity-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center">
+                  <ChefHat className="w-5 h-5 text-sky-400" />
+                </div>
+                {selectedRole === 'kitchen' && (
+                  <CheckCircle2 className="w-4 h-4 text-sky-400" />
+                )}
+              </div>
+              <div className="text-sm font-bold text-white">Kitchen</div>
+              <div className="text-[10px] uppercase font-bold tracking-wider text-sky-400 mt-0.5">
+                /kitchen
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">
+                Live Cooking KDS, Preparation & Order Status
+              </p>
+            </button>
+
+            {/* 3. Cashier */}
+            <button
+              type="button"
+              onClick={() => handleRoleSelect('cashier')}
+              className={`p-4 rounded-2xl border text-left transition-all relative cursor-pointer ${
+                selectedRole === 'cashier'
+                  ? 'bg-[#0e1b15] border-emerald-500 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500'
+                  : 'bg-[#111114] border-white/10 hover:border-white/20 opacity-80 hover:opacity-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                  <Store className="w-5 h-5 text-emerald-400" />
+                </div>
+                {selectedRole === 'cashier' && (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                )}
+              </div>
+              <div className="text-sm font-bold text-white">Cashier</div>
+              <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 mt-0.5">
+                /cashier
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">
+                Orders, Pending Table Settlements & Billing
+              </p>
+            </button>
           </div>
 
-          {/* Role cards — informational */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 bg-[#111111] border border-white/8 rounded-xl text-center">
-              <ShieldCheck className="w-5 h-5 text-[#c5a059] mx-auto mb-1.5" />
-              <div className="text-xs font-bold text-white">Admin</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">Full access</div>
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="bg-[#111114] border border-white/10 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-300">
+                Sign in to <span className="text-white capitalize font-black">{selectedRole} Portal</span>
+              </span>
+              <span className="text-[10px] text-gray-500 font-mono">
+                Access: /{selectedRole}
+              </span>
             </div>
-            <div className="p-3 bg-[#111111] border border-white/8 rounded-xl text-center">
-              <User className="w-5 h-5 text-[#c5a059] mx-auto mb-1.5" />
-              <div className="text-xs font-bold text-white">Reception</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">Orders & payment</div>
-            </div>
-            <div className="p-3 bg-[#111111] border border-white/8 rounded-xl text-center">
-              <ChefHat className="w-5 h-5 text-[#c5a059] mx-auto mb-1.5" />
-              <div className="text-xs font-bold text-white">Kitchen</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">Prep & service</div>
-            </div>
-          </div>
 
-          {/* Login form */}
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {/* Error message */}
             {error && (
-              <div className="flex items-start gap-2.5 p-3.5 bg-red-950/60 border border-red-800/60 rounded-xl text-sm text-red-300">
+              <div className="flex items-start gap-2.5 p-3.5 bg-red-950/60 border border-red-800/60 rounded-xl text-xs sm:text-sm text-red-300">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -129,7 +233,7 @@ export const StaffLoginPage: React.FC = () => {
             {/* Staff ID */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 block">
-                Staff ID
+                Staff ID / Code
               </label>
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -138,9 +242,8 @@ export const StaffLoginPage: React.FC = () => {
                   value={staffCode}
                   onChange={(e) => { setStaffCode(e.target.value.toUpperCase()); setError(''); }}
                   placeholder="e.g. ADMIN001 or KIT001"
-                  className="w-full bg-[#111111] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c5a059] transition-colors"
+                  className="w-full bg-[#18181b] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c5a059] transition-colors"
                   autoComplete="username"
-                  autoFocus
                 />
               </div>
             </div>
@@ -156,8 +259,8 @@ export const StaffLoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                  placeholder="Enter your password"
-                  className="w-full bg-[#111111] border border-white/10 rounded-xl pl-10 pr-11 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c5a059] transition-colors"
+                  placeholder="Enter password"
+                  className="w-full bg-[#18181b] border border-white/10 rounded-xl pl-10 pr-11 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c5a059] transition-colors"
                   autoComplete="current-password"
                 />
                 <button
@@ -175,7 +278,13 @@ export const StaffLoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-[#c5a059] hover:bg-[#d6b26b] active:bg-[#b08d48] text-black font-extrabold text-sm uppercase tracking-[0.15em] rounded-xl shadow-lg shadow-[#c5a059]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              className={`w-full py-3.5 text-black font-extrabold text-xs sm:text-sm uppercase tracking-[0.15em] rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                selectedRole === 'admin'
+                  ? 'bg-[#c5a059] hover:bg-[#d6b26b]'
+                  : selectedRole === 'kitchen'
+                  ? 'bg-sky-400 hover:bg-sky-300'
+                  : 'bg-emerald-400 hover:bg-emerald-300'
+              }`}
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
@@ -183,53 +292,49 @@ export const StaffLoginPage: React.FC = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
                   </svg>
-                  Signing In...
+                  Authenticating...
                 </span>
               ) : (
                 <>
-                  <ShieldCheck className="w-4 h-4" />
-                  Sign In to Staff Portal
+                  <span>Open {selectedRole.toUpperCase()} Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Demo credentials hint */}
-          <div className="p-4 bg-[#0e0e0e] border border-[#c5a059]/20 rounded-xl space-y-2.5">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-[#c5a059]">
-              Demo Credentials
+          {/* Quick Demo Credentials Footer */}
+          <div className="p-4 bg-[#111114] border border-white/5 rounded-2xl space-y-2">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400">
+              Quick Switch Credentials:
             </p>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-gray-400">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#c5a059]" />
-                  <span>Admin:</span>
-                  <code className="font-mono text-white bg-white/5 px-1.5 py-0.5 rounded">ADMIN001</code>
-                </div>
-                <code className="font-mono text-gray-300 bg-white/5 px-1.5 py-0.5 rounded">admin123</code>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-gray-400">
-                  <User className="w-3.5 h-3.5 text-[#c5a059]" />
-                  <span>Reception:</span>
-                  <code className="font-mono text-white bg-white/5 px-1.5 py-0.5 rounded">REC001</code>
-                </div>
-                <code className="font-mono text-gray-300 bg-white/5 px-1.5 py-0.5 rounded">reception123</code>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-gray-400">
-                  <ChefHat className="w-3.5 h-3.5 text-[#c5a059]" />
-                  <span>Kitchen:</span>
-                  <code className="font-mono text-white bg-white/5 px-1.5 py-0.5 rounded">KIT001</code>
-                </div>
-                <code className="font-mono text-gray-300 bg-white/5 px-1.5 py-0.5 rounded">kitchen123</code>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleRoleSelect('admin')}
+                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-[#c5a059]/40 transition-colors"
+              >
+                <span className="text-[#c5a059] font-bold block">Admin</span>
+                <span className="text-gray-400 font-mono text-[11px]">ADMIN001 / admin123</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleSelect('kitchen')}
+                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-sky-500/40 transition-colors"
+              >
+                <span className="text-sky-400 font-bold block">Kitchen</span>
+                <span className="text-gray-400 font-mono text-[11px]">KIT001 / kitchen123</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleSelect('cashier')}
+                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-emerald-500/40 transition-colors"
+              >
+                <span className="text-emerald-400 font-bold block">Cashier</span>
+                <span className="text-gray-400 font-mono text-[11px]">CASH001 / cashier123</span>
+              </button>
             </div>
           </div>
-
-          <p className="text-center text-[11px] text-gray-600">
-            This portal is for authorized restaurant staff only.
-          </p>
         </div>
       </div>
     </div>

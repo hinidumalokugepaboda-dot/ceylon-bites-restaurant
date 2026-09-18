@@ -8,7 +8,6 @@ export type MenuCategory =
   | 'seafood'
   | 'noodles'
   | 'chicken-bites'
-  | 'sharing'
   | 'desserts'
   | 'drinks';
 
@@ -134,12 +133,33 @@ export interface CustomerNotification {
   read: boolean;
 }
 
-// Staff user for admin/reception/kitchen login
+export type StaffRole = 'admin' | 'reception' | 'kitchen' | 'cashier';
+
+// Staff user for admin/cashier/reception/kitchen login
 export interface StaffUser {
   staffId: string;
   staffCode: string;
   name: string;
-  role: 'admin' | 'reception' | 'kitchen';
+  role: StaffRole;
+  isLoggedIn: boolean;
+}
+
+export interface StaffAccount {
+  id: string;
+  staffCode: string;
+  name: string;
+  role: 'admin' | 'kitchen' | 'cashier';
+  status: 'active' | 'inactive' | 'revoked';
+  passwordHash?: string;
+  createdAt?: string;
+}
+
+export interface CustomerUser {
+  id?: string;
+  name: string;
+  phone: string;
+  password?: string;
+  email?: string;
   isLoggedIn: boolean;
 }
 

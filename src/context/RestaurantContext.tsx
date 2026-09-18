@@ -13,6 +13,8 @@ import {
   BudgetRecommendation,
   PortionSwapSuggestion,
   StaffUser,
+  StaffAccount,
+  CustomerUser,
   CustomerNotification
 } from '../types';
 import { FOOD_ITEMS, REWARD_VOUCHERS } from '../data/menuData';
@@ -20,7 +22,17 @@ import { FOOD_ITEMS, REWARD_VOUCHERS } from '../data/menuData';
 // ================================================================
 // View types — extended for staff pages
 // ================================================================
-export type ActiveView = 'home' | 'tracking' | 'login' | 'kitchen' | 'admin' | 'reception';
+export type ActiveView = 'home' | 'tracking' | 'login' | 'kitchen' | 'admin' | 'reception' | 'cashier';
+
+export interface CashierAlertData {
+  orderId: string;
+  orderNumber: string;
+  tableNumber: string;
+  paymentMethod: string;
+  total: number;
+  message: string;
+  timestamp: number;
+}
 
 interface RestaurantContextType {
   // Table context
@@ -146,22 +158,35 @@ interface RestaurantContextType {
   isProfileOpen: boolean;
   setIsProfileOpen: (open: boolean) => void;
 
-  // Customer Auth (Mock)
-  customerUser: {
-    name: string;
-    phone: string;
-    email: string;
-    isLoggedIn: boolean;
-  };
-  setCustomerUser: (user: { name: string; phone: string; email: string; isLoggedIn: boolean }) => void;
+  // Customer Auth
+  customerUser: CustomerUser;
+  setCustomerUser: (user: CustomerUser) => void;
   loginCustomer: (name: string, phone: string, email?: string) => void;
+  signUpCustomer: (name: string, phone: string, password: string) => { success: boolean; message: string };
+  loginCustomerWithPassword: (phone: string, password: string) => { success: boolean; message: string };
   logoutCustomer: () => void;
 
-  // Staff Auth
+  // Staff Auth & RBAC
   staffUser: StaffUser;
-  loginStaff: (staffCode: string, password: string) => Promise<{ success: boolean; message: string }>;
-  loginAsRole: (role: 'admin' | 'reception' | 'kitchen') => void;
+  staffAccounts: StaffAccount[];
+  loginStaff: (staffCode: string, password: string, selectedRole?: 'admin' | 'kitchen' | 'cashier') => Promise<{ success: boolean; message: string }>;
+  loginAsRole: (role: 'admin' | 'reception' | 'kitchen' | 'cashier') => void;
   logoutStaff: () => void;
+  addStaffAccount: (staffCode: string, name: string, role: 'kitchen' | 'cashier', password: string) => { success: boolean; message: string };
+  updateStaffAccount: (id: string, updates: Partial<StaffAccount>) => void;
+  resetStaffPassword: (id: string, newPassword: string) => void;
+  deleteStaffAccount: (id: string) => void;
+
+  // Navigation & URL routing
+  navigateToView: (view: ActiveView) => void;
+
+  // Real-time alerts & Audio
+  isAudioEnabled: boolean;
+  toggleAudio: (enabled?: boolean) => void;
+  playKitchenChime: () => void;
+  playCashierChime: () => void;
+  cashierAlert: CashierAlertData | null;
+  dismissCashierAlert: () => void;
 
   // Budget Optimizer Helper
   optimizeBudget: (
@@ -285,39 +310,196 @@ const INITIAL_ORDER_HISTORY: Order[] = [
   }
 ];
 
-// Demo staff credentials (frontend fallback when PHP backend is not running)
+// Web Audio Chime Synthesizer
+class WebAudioSynthesizer {
+  private ctx: AudioContext | null = null;
+
+  private initCtx() {
+    if (!this.ctx && typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+      }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  public unlock() {
+    this.initCtx();
+  }
+
+  public playKitchenChime() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc1.type = 'sine';
+      osc2.type = 'triangle';
+
+      osc1.frequency.setValueAtTime(587.33, now); // D5
+      osc1.frequency.setValueAtTime(880.00, now + 0.15); // A5
+
+      osc2.frequency.setValueAtTime(587.33, now);
+      osc2.frequency.setValueAtTime(880.00, now + 0.15);
+
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.6);
+      osc2.stop(now + 0.6);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  }
+
+  public playCashierChime() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+      osc.frequency.setValueAtTime(783.99, now + 0.24); // G5
+      osc.frequency.setValueAtTime(1046.50, now + 0.36); // C6
+
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.8);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  }
+}
+
+const sfx = new WebAudioSynthesizer();
+
+const DEFAULT_STAFF_ACCOUNTS: StaffAccount[] = [
+  { id: 'staff-1', staffCode: 'ADMIN001', name: 'Saman Perera', role: 'admin', status: 'active', passwordHash: 'admin123', createdAt: '2026-01-01' },
+  { id: 'staff-2', staffCode: 'CASH001', name: 'Dilini Fernando', role: 'cashier', status: 'active', passwordHash: 'cashier123', createdAt: '2026-01-01' },
+  { id: 'staff-3', staffCode: 'KIT001', name: 'Nimal Kumara', role: 'kitchen', status: 'active', passwordHash: 'kitchen123', createdAt: '2026-01-01' }
+];
+
+// Demo staff credentials (fallback)
 const DEMO_STAFF: StaffUser[] = [
   { staffId: '1', staffCode: 'ADMIN001', name: 'Saman Perera', role: 'admin', isLoggedIn: false },
-  { staffId: '2', staffCode: 'REC001', name: 'Dilini Fernando', role: 'reception', isLoggedIn: false },
+  { staffId: '2', staffCode: 'CASH001', name: 'Dilini Fernando', role: 'cashier', isLoggedIn: false },
   { staffId: '3', staffCode: 'KIT001', name: 'Nimal Kumara', role: 'kitchen', isLoggedIn: false }
 ];
 const DEMO_PASSWORDS: Record<string, string> = {
   'ADMIN001': 'admin123',
+  'CASH001': 'cashier123',
   'REC001': 'reception123',
   'KIT001': 'kitchen123'
 };
 
+const getViewFromPath = (): ActiveView => {
+  try {
+    if (typeof window === 'undefined') return 'home';
+    const p = window.location.pathname.toLowerCase();
+    if (p.startsWith('/staff') || p.startsWith('/staff-login')) return 'login';
+    if (p.startsWith('/kitchen')) return 'kitchen';
+    if (p.startsWith('/cashier') || p.startsWith('/reception')) return 'cashier';
+    if (p.startsWith('/admin')) return 'admin';
+  } catch {}
+  return 'home';
+};
+
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Table context from URL query parameter ?table=12
-  const [tableNumber, setTableNumber] = useState<string>('12');
+  // Table context from URL query parameter ?table=X or localStorage (1 to 10), default to '1'
+  const [tableNumber, setTableNumberState] = useState<string>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const paramTable = params.get('table') || params.get('table_id');
+      if (paramTable) {
+        localStorage.setItem('ceylon_active_table', paramTable);
+        return paramTable;
+      }
+      const saved = localStorage.getItem('ceylon_active_table');
+      if (saved) return saved;
+    } catch {}
+    return '1';
+  });
+
+  const setTableNumber = useCallback((tbl: string) => {
+    setTableNumberState(tbl);
+    try {
+      localStorage.setItem('ceylon_active_table', tbl);
+      const url = new URL(window.location.href);
+      url.searchParams.set('table', tbl);
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+  }, []);
+
   const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('dine-in');
-  const [activeView, setActiveView] = useState<ActiveView>('home');
+
+  // URL Path synchronization for views
+  const [activeView, setActiveViewState] = useState<ActiveView>(getViewFromPath);
+
+  const navigateToView = useCallback((view: ActiveView) => {
+    setActiveViewState(view);
+    try {
+      let path = '/';
+      if (view === 'login') path = '/staff';
+      else if (view === 'kitchen') path = '/kitchen';
+      else if (view === 'reception' || view === 'cashier') path = '/cashier';
+      else if (view === 'admin') path = '/admin';
+
+      const search = window.location.search;
+      window.history.pushState(null, '', path + search);
+    } catch {}
+  }, []);
+
+  const setActiveView = useCallback((view: ActiveView) => {
+    navigateToView(view);
+  }, [navigateToView]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveViewState(getViewFromPath());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Sticky Target Budget Tracker
   const [targetBudget, setTargetBudget] = useState<number | null>(null);
   const [targetHeadcount, setTargetHeadcount] = useState<number>(2);
 
+  // Sync table from URL if changed externally
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tableParam = params.get('table') || params.get('table_id');
-      if (tableParam) {
-        setTableNumber(tableParam);
+      if (tableParam && tableParam !== tableNumber) {
+        setTableNumberState(tableParam);
+        localStorage.setItem('ceylon_active_table', tableParam);
       }
     } catch {
       // ignore
     }
-  }, []);
+  }, [tableNumber]);
 
   // Navigation & Page State
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('kottu');
@@ -380,15 +562,158 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Customer Auth (mock persistent state)
-  const [customerUser, setCustomerUser] = useState({
-    name: 'Kavindu Senanayake',
-    phone: '077 123 4567',
-    email: 'kavindu.s@gmail.com',
-    isLoggedIn: true
+  // Customer Auth (persisted)
+  const [customerUser, setCustomerUserState] = useState<CustomerUser>(() => {
+    try {
+      const saved = localStorage.getItem('ceylon_customer_session');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: 'Kavindu Senanayake',
+      phone: '077 123 4567',
+      email: 'kavindu@ceylonbites.lk',
+      isLoggedIn: true
+    };
   });
 
-  // Staff Auth
+  const setCustomerUser = useCallback((user: CustomerUser) => {
+    setCustomerUserState(user);
+    try {
+      localStorage.setItem('ceylon_customer_session', JSON.stringify(user));
+    } catch {}
+  }, []);
+
+  const loginCustomer = useCallback((name: string, phone: string, email = '') => {
+    const user: CustomerUser = {
+      name: name || 'Valued Guest',
+      phone: phone || '077 123 4567',
+      email: email || 'guest@ceylonbites.lk',
+      isLoggedIn: true
+    };
+    setCustomerUser(user);
+    setIsAuthModalOpen(false);
+  }, [setCustomerUser]);
+
+  const signUpCustomer = useCallback((name: string, phone: string, password: string): { success: boolean; message: string } => {
+    if (!name.trim() || !phone.trim() || !password.trim()) {
+      return { success: false, message: 'Please provide your Full Name, Phone Number, and Password.' };
+    }
+    const cleanPhone = phone.trim();
+    try {
+      const savedAccounts: CustomerUser[] = JSON.parse(localStorage.getItem('ceylon_customer_accounts') || '[]');
+      const existing = savedAccounts.find((a) => a.phone === cleanPhone);
+      if (existing) {
+        return { success: false, message: 'An account with this phone number already exists. Please log in.' };
+      }
+      const newUser: CustomerUser = {
+        id: `cust-${Date.now()}`,
+        name: name.trim(),
+        phone: cleanPhone,
+        password: password.trim(),
+        isLoggedIn: true
+      };
+      savedAccounts.push(newUser);
+      localStorage.setItem('ceylon_customer_accounts', JSON.stringify(savedAccounts));
+      setCustomerUser(newUser);
+      setIsAuthModalOpen(false);
+      return { success: true, message: 'Account registered successfully!' };
+    } catch {
+      return { success: false, message: 'Could not create account.' };
+    }
+  }, [setCustomerUser]);
+
+  const loginCustomerWithPassword = useCallback((phone: string, password: string): { success: boolean; message: string } => {
+    if (!phone.trim() || !password.trim()) {
+      return { success: false, message: 'Please enter both your phone number and password.' };
+    }
+    const cleanPhone = phone.trim();
+    try {
+      const savedAccounts: CustomerUser[] = JSON.parse(localStorage.getItem('ceylon_customer_accounts') || '[]');
+      const account = savedAccounts.find((a) => a.phone === cleanPhone && a.password === password.trim());
+      if (account) {
+        const user = { ...account, isLoggedIn: true };
+        setCustomerUser(user);
+        setIsAuthModalOpen(false);
+        return { success: true, message: 'Welcome back!' };
+      }
+      // Demo fallback credentials
+      if ((cleanPhone === '077 123 4567' || cleanPhone === '0771234567') && (password === '1234' || password === 'password')) {
+        const demoUser: CustomerUser = {
+          name: 'Kavindu Senanayake',
+          phone: cleanPhone,
+          email: 'kavindu@ceylonbites.lk',
+          isLoggedIn: true
+        };
+        setCustomerUser(demoUser);
+        setIsAuthModalOpen(false);
+        return { success: true, message: 'Welcome back (Demo User)!' };
+      }
+      return { success: false, message: 'Incorrect phone number or password. Please try again or Sign Up.' };
+    } catch {
+      return { success: false, message: 'Login encountered an error.' };
+    }
+  }, [setCustomerUser]);
+
+  const logoutCustomer = useCallback(() => {
+    const loggedOut: CustomerUser = { name: '', phone: '', isLoggedIn: false };
+    setCustomerUserState(loggedOut);
+    try {
+      localStorage.removeItem('ceylon_customer_session');
+    } catch {}
+  }, []);
+
+  // Staff Accounts & RBAC state
+  const [staffAccounts, setStaffAccounts] = useState<StaffAccount[]>(() => {
+    try {
+      const saved = localStorage.getItem('ceylon_staff_accounts');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_STAFF_ACCOUNTS;
+  });
+
+  const saveStaffAccounts = (accounts: StaffAccount[]) => {
+    setStaffAccounts(accounts);
+    try {
+      localStorage.setItem('ceylon_staff_accounts', JSON.stringify(accounts));
+    } catch {}
+  };
+
+  const addStaffAccount = (staffCode: string, name: string, role: 'kitchen' | 'cashier', password: string) => {
+    const codeUp = staffCode.trim().toUpperCase();
+    if (!codeUp) return { success: false, message: 'Please enter a Staff ID.' };
+    if (!password.trim()) return { success: false, message: 'Please set an initial password.' };
+    if (staffAccounts.some((a) => a.staffCode === codeUp)) {
+      return { success: false, message: `Staff ID "${codeUp}" already exists.` };
+    }
+    const newAcc: StaffAccount = {
+      id: `staff-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      staffCode: codeUp,
+      name: name.trim() || `${role === 'kitchen' ? 'Kitchen Staff' : 'Cashier Staff'} (${codeUp})`,
+      role,
+      status: 'active',
+      passwordHash: password.trim(),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    saveStaffAccounts([...staffAccounts, newAcc]);
+    return { success: true, message: `Staff account ${codeUp} created successfully.` };
+  };
+
+  const updateStaffAccount = (id: string, updates: Partial<StaffAccount>) => {
+    const updated = staffAccounts.map((a) => (a.id === id ? { ...a, ...updates } : a));
+    saveStaffAccounts(updated);
+  };
+
+  const resetStaffPassword = (id: string, newPassword: string) => {
+    const updated = staffAccounts.map((a) => (a.id === id ? { ...a, passwordHash: newPassword } : a));
+    saveStaffAccounts(updated);
+  };
+
+  const deleteStaffAccount = (id: string) => {
+    const updated = staffAccounts.filter((a) => a.id !== id);
+    saveStaffAccounts(updated);
+  };
+
+  // Staff Session Auth
   const [staffUser, setStaffUser] = useState<StaffUser>(() => {
     try {
       const saved = localStorage.getItem('ceylon_staff_session');
@@ -411,19 +736,130 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [staffUser]);
 
+  // Real-time Audio & Alerts
+  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ceylon_audio_enabled') !== 'false';
+    } catch {}
+    return true;
+  });
+
+  const toggleAudio = useCallback((enabled?: boolean) => {
+    setIsAudioEnabled((prev) => {
+      const next = typeof enabled === 'boolean' ? enabled : !prev;
+      try {
+        localStorage.setItem('ceylon_audio_enabled', String(next));
+      } catch {}
+      if (next) sfx.unlock();
+      return next;
+    });
+  }, []);
+
+  const playKitchenChime = useCallback(() => {
+    if (isAudioEnabled) {
+      sfx.playKitchenChime();
+    }
+  }, [isAudioEnabled]);
+
+  const playCashierChime = useCallback(() => {
+    if (isAudioEnabled) {
+      sfx.playCashierChime();
+    }
+  }, [isAudioEnabled]);
+
+  const [cashierAlert, setCashierAlert] = useState<CashierAlertData | null>(null);
+  const dismissCashierAlert = useCallback(() => setCashierAlert(null), []);
+
+  // Real-time cross-tab BroadcastChannel listener
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    const channel = new BroadcastChannel('ceylon_bites_realtime_events');
+
+    channel.onmessage = (event) => {
+      const data = event.data;
+      if (!data || !data.type) return;
+
+      if (data.type === 'order:kitchen_new') {
+        const incomingOrder: Order = data.order;
+        setKitchenOrders((prev) => {
+          if (prev.some((o) => o.id === incomingOrder.id)) return prev;
+          return [incomingOrder, ...prev];
+        });
+        setOrderHistory((prev) => {
+          if (prev.some((o) => o.id === incomingOrder.id)) return prev;
+          return [incomingOrder, ...prev];
+        });
+        setNewOrderNotification(true);
+        playKitchenChime();
+      } else if (data.type === 'order:cashier_settlement') {
+        const incomingOrder: Order = data.order;
+        setCashierAlert({
+          orderId: incomingOrder.id,
+          orderNumber: incomingOrder.orderNumber,
+          tableNumber: incomingOrder.tableNumber,
+          paymentMethod: data.paymentMethod || incomingOrder.paymentMethod,
+          total: incomingOrder.total,
+          message: data.message || `Table #${incomingOrder.tableNumber} requested bill settlement via ${incomingOrder.paymentMethod}`,
+          timestamp: Date.now()
+        });
+        playCashierChime();
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [playKitchenChime, playCashierChime]);
+
+  // Unlock audio context on initial user click
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      sfx.unlock();
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
+  }, []);
+
   // ----------------------------------------------------------------
-  // Staff Login — tries PHP backend first, falls back to demo data
+  // Staff Login — checks RBAC staff accounts, then backend, then fallback
   // ----------------------------------------------------------------
-  const loginStaff = async (staffCode: string, password: string): Promise<{ success: boolean; message: string }> => {
+  const loginStaff = async (staffCode: string, password: string, selectedRole?: 'admin' | 'kitchen' | 'cashier'): Promise<{ success: boolean; message: string }> => {
     if (!staffCode.trim()) return { success: false, message: 'Please enter your Staff ID.' };
     if (!password) return { success: false, message: 'Please enter your password.' };
 
-    // Try PHP backend
+    const codeUp = staffCode.trim().toUpperCase();
+
+    // 1. Check dynamic staff accounts (RBAC)
+    const matchedAccount = staffAccounts.find((a) => a.staffCode === codeUp);
+    if (matchedAccount) {
+      if (matchedAccount.status !== 'active') {
+        return { success: false, message: 'This staff account has been revoked or deactivated.' };
+      }
+      if (selectedRole && matchedAccount.role !== selectedRole && matchedAccount.role !== 'admin') {
+        return { success: false, message: `Access denied: Account ${codeUp} is assigned to ${matchedAccount.role.toUpperCase()}, not ${selectedRole.toUpperCase()}.` };
+      }
+      if (matchedAccount.passwordHash === password) {
+        const user: StaffUser = {
+          staffId: matchedAccount.id,
+          staffCode: matchedAccount.staffCode,
+          name: matchedAccount.name,
+          role: matchedAccount.role === 'cashier' ? 'cashier' : matchedAccount.role,
+          isLoggedIn: true
+        };
+        setStaffUser(user);
+        return { success: true, message: 'Login successful.' };
+      }
+      return { success: false, message: 'Invalid password. Please try again.' };
+    }
+
+    // 2. Try PHP backend
     try {
       const res = await fetch('/api/staff_login.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_code: staffCode.trim().toUpperCase(), password })
+        body: JSON.stringify({ staff_code: codeUp, password })
       });
       if (res.ok) {
         const json = await res.json();
@@ -432,7 +868,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             staffId: String(json.staff_id),
             staffCode: json.staff_code,
             name: json.name,
-            role: json.role as 'admin' | 'reception' | 'kitchen',
+            role: (json.role === 'cashier' ? 'cashier' : json.role) as 'admin' | 'reception' | 'kitchen' | 'cashier',
             isLoggedIn: true
           };
           setStaffUser(user);
@@ -445,8 +881,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Backend not available — fall through to demo fallback
     }
 
-    // Demo fallback (frontend-only mode)
-    const codeUp = staffCode.trim().toUpperCase();
+    // 3. Demo fallback
     const demo = DEMO_STAFF.find((s) => s.staffCode === codeUp);
     if (demo && DEMO_PASSWORDS[codeUp] === password) {
       const user: StaffUser = { ...demo, isLoggedIn: true };
@@ -457,17 +892,18 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { success: false, message: 'Invalid Staff ID or password.' };
   };
 
-  const loginAsRole = (role: 'admin' | 'reception' | 'kitchen') => {
-    const demo = DEMO_STAFF.find((s) => s.role === role) || {
-      staffId: role === 'admin' ? '1' : role === 'reception' ? '2' : '3',
-      staffCode: role === 'admin' ? 'ADMIN001' : role === 'reception' ? 'REC001' : 'KIT001',
-      name: role === 'admin' ? 'Saman Perera (Admin)' : role === 'reception' ? 'Dilini Fernando (Cashier/Reception)' : 'Nimal Kumara (Kitchen)',
-      role,
+  const loginAsRole = (role: 'admin' | 'reception' | 'kitchen' | 'cashier') => {
+    const mappedRole = role === 'reception' ? 'cashier' : role;
+    const demo = DEMO_STAFF.find((s) => s.role === mappedRole) || {
+      staffId: role === 'admin' ? '1' : role === 'kitchen' ? '3' : '2',
+      staffCode: role === 'admin' ? 'ADMIN001' : role === 'kitchen' ? 'KIT001' : 'CASH001',
+      name: role === 'admin' ? 'Saman Perera (Admin)' : role === 'kitchen' ? 'Nimal Kumara (Kitchen)' : 'Dilini Fernando (Cashier)',
+      role: mappedRole,
       isLoggedIn: true
     };
     const user: StaffUser = { ...demo, isLoggedIn: true };
     setStaffUser(user);
-    setActiveView(role);
+    setActiveView(mappedRole);
   };
 
   const logoutStaff = () => {
@@ -1003,8 +1439,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     cardLast4?: string
   ): Promise<Order> => {
     const orderNum = (1045 + orderHistory.length).toString();
-    const resolvedPaymentStatus = paymentStatus || (paymentMethod === 'online' ? 'paid_online' : paymentMethod === 'card' ? 'pay_at_table_card' : 'pay_at_table_cash');
-    const resolvedTxnId = transactionId || (paymentMethod === 'online' ? `TXN-CB-${Math.floor(100000 + Math.random() * 900000)}` : undefined);
+    const isOnline = paymentMethod === 'online' || paymentStatus === 'paid_online';
+    const resolvedPaymentStatus: PaymentStatus = isOnline
+      ? 'paid_online'
+      : (paymentMethod === 'card' ? 'pay_at_table_card' : 'pay_at_table_cash');
+    const resolvedTxnId = transactionId || (isOnline ? `TXN-CB-${Math.floor(100000 + Math.random() * 900000)}` : undefined);
 
     const newOrder: Order = {
       id: `ord-${orderNum}`,
@@ -1021,7 +1460,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       paymentStatus: resolvedPaymentStatus,
       transactionId: resolvedTxnId,
       cardLast4,
-      status: 'pending_reception',
+      status: 'sent_to_kitchen', // Directly dispatched to kitchen
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
       estimatedMinutes: 18,
       orderType: orderType,
@@ -1074,14 +1513,51 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (exists) return prev;
       return [newOrder, ...prev];
     });
+
     addCustomerNotification({
       orderId: newOrder.id,
       orderNumber: newOrder.orderNumber,
-      type: 'NEW_ORDER',
-      title: 'New Order Received',
-      message: `Your order #${newOrder.orderNumber} has been received and is waiting for reception confirmation.`
+      type: 'SENT_TO_KITCHEN',
+      title: isOnline ? 'Order Sent to Kitchen (Paid Online)' : 'Order Sent to Kitchen (Pay at Table)',
+      message: `Your order #${newOrder.orderNumber} is now sent directly to the kitchen chefs.`
     });
     setNewOrderNotification(true);
+
+    // Cross-tab real-time event broadcasting
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const channel = new BroadcastChannel('ceylon_bites_realtime_events');
+        // Always push to kitchen
+        channel.postMessage({ type: 'order:kitchen_new', order: newOrder });
+
+        if (!isOnline) {
+          // Pay at Table: trigger immediate cashier settlement alert & chime
+          const payLabel = paymentMethod === 'card' ? 'Card (POS)' : 'Cash';
+          channel.postMessage({
+            type: 'order:cashier_settlement',
+            order: newOrder,
+            paymentMethod: payLabel,
+            message: `Table #${tableNumber} requested bill settlement via ${payLabel}`
+          });
+        }
+        channel.close();
+      }
+    } catch {}
+
+    // If local user is currently on cashier view and customer opted to pay at table:
+    if (!isOnline) {
+      const payLabel = paymentMethod === 'card' ? 'Card (POS)' : 'Cash';
+      setCashierAlert({
+        orderId: newOrder.id,
+        orderNumber: newOrder.orderNumber,
+        tableNumber: newOrder.tableNumber,
+        paymentMethod: payLabel,
+        total: newOrder.total,
+        message: `Table #${tableNumber} requested bill settlement via ${payLabel}`,
+        timestamp: Date.now()
+      });
+      playCashierChime();
+    }
 
     // Earn loyalty points
     const earnedPoints = Math.round(finalCartTotal * 0.1);
@@ -1192,23 +1668,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // ----------------------------------------------------------------
-  // Customer auth
-  // ----------------------------------------------------------------
-  const loginCustomer = (name: string, phone: string, email = '') => {
-    setCustomerUser({
-      name: name || 'Valued Guest',
-      phone: phone || '077 123 4567',
-      email: email || 'guest@ceylonbites.lk',
-      isLoggedIn: true
-    });
-    setIsAuthModalOpen(false);
-  };
-
-  const logoutCustomer = () => {
-    setCustomerUser({ name: '', phone: '', email: '', isLoggedIn: false });
-  };
-
-  // ----------------------------------------------------------------
   // Dynamic Knapsack Multi-tier Portion Budget Optimizer
   // ----------------------------------------------------------------
   const optimizeBudget = (
@@ -1219,7 +1678,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     groupSize = 1
   ): BudgetRecommendation => {
     let candidateMains = FOOD_ITEMS.filter((item) => {
-      if (item.category === 'desserts' || item.category === 'drinks' || item.category === 'sharing') return false;
+      if (item.category === 'desserts' || item.category === 'drinks') return false;
       if (foodType !== 'any' && item.category !== foodType) return false;
       if (protein !== 'any') {
         const itemText = (item.name + ' ' + item.description).toLowerCase();
@@ -1445,11 +1904,25 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         customerUser,
         setCustomerUser,
         loginCustomer,
+        signUpCustomer,
+        loginCustomerWithPassword,
         logoutCustomer,
         staffUser,
+        staffAccounts,
         loginStaff,
         loginAsRole,
         logoutStaff,
+        addStaffAccount,
+        updateStaffAccount,
+        resetStaffPassword,
+        deleteStaffAccount,
+        navigateToView,
+        isAudioEnabled,
+        toggleAudio,
+        playKitchenChime,
+        playCashierChime,
+        cashierAlert,
+        dismissCashierAlert,
         optimizeBudget
       }}
     >

@@ -2,17 +2,8 @@ import React, { useEffect } from 'react';
 import { useRestaurant } from './context/RestaurantContext';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
-import { ByobBanner } from './components/ByobBanner';
-import { HowItWorks } from './components/HowItWorks';
 import { MenuSection } from './components/MenuSection';
 import { BudgetOptimizer } from './components/BudgetOptimizer';
-import { SmartRecommendations } from './components/SmartRecommendations';
-import { OffersSection } from './components/OffersSection';
-import { LoyaltySection } from './components/LoyaltySection';
-import { RestaurantAtmosphere } from './components/RestaurantAtmosphere';
-import { AboutSection } from './components/AboutSection';
-import { ReviewsSection } from './components/ReviewsSection';
-import { ContactSection } from './components/ContactSection';
 import { Footer } from './components/Footer';
 import { FoodModal } from './components/FoodModal';
 import { CartDrawer } from './components/CartDrawer';
@@ -98,8 +89,8 @@ export function App() {
     return <KitchenDashboard />;
   }
 
-  if (activeView === 'reception') {
-    if (!staffUser.isLoggedIn || (staffUser.role !== 'reception' && staffUser.role !== 'admin')) {
+  if (activeView === 'reception' || activeView === 'cashier') {
+    if (!staffUser.isLoggedIn || (staffUser.role !== 'reception' && staffUser.role !== 'cashier' && staffUser.role !== 'admin')) {
       return <StaffLoginPage />;
     }
     return <ReceptionDashboard />;
@@ -113,14 +104,19 @@ export function App() {
   }
 
   // ----------------------------------------------------------------
-  // Customer-facing restaurant shell
+  // Customer-facing restaurant shell: Enforce strict top-to-bottom customer flow
+  // 1. Header / Navbar
+  // 2. Hero Section
+  // 3. Digital Table Menu
+  // 4. Smart Budget & Portion Optimizer
+  // 5. Cart, Checkout Modal, and Footer
   // ----------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#e5e7eb] font-sans antialiased selection:bg-[#c5a059] selection:text-black">
       {/* Top Fixed Header Navbar */}
       <Navbar onNavigate={handleNavigate} />
 
-      {/* Main View Router */}
+      {/* Main View Flow */}
       <main className="relative pt-16">
         {activeView === 'tracking' ? (
           <OrderTracking />
@@ -131,17 +127,8 @@ export function App() {
               onExploreMenu={() => handleNavigate('menu')}
               onOpenBudget={() => handleNavigate('budget')}
             />
-            <ByobBanner />
-            <HowItWorks onNavigate={handleNavigate} />
             <MenuSection />
             <BudgetOptimizer />
-            <SmartRecommendations />
-            <OffersSection />
-            <LoyaltySection />
-            <RestaurantAtmosphere />
-            <AboutSection />
-            <ReviewsSection />
-            <ContactSection />
           </>
         )}
       </main>
@@ -158,7 +145,6 @@ export function App() {
       <OrderConfirmationModal />
       <TableModal />
       <CustomerAuthModal />
-      <StaffLoginModal />
       <MobileBottomNav onNavigate={handleNavigate} />
     </div>
   );
