@@ -221,6 +221,21 @@ export const CustomerAuthModal: React.FC = () => {
                   {isLoading ? 'Signing In...' : 'Sign In to Table Session'}
                 </button>
 
+                <div className="pt-2 border-t border-zinc-800/80 space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      loginCustomerWithPassword('0771234567', 'password123');
+                    }}
+                    className="w-full py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-[#c5a059]/40 text-xs font-semibold text-[#c5a059] rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>⚡ 1-Tap Quick Sign-In (Kavindu)</span>
+                  </button>
+                  <p className="text-[10px] text-zinc-500 text-center">
+                    Demo: <code className="text-zinc-300">0771234567</code> / <code className="text-zinc-300">password123</code>
+                  </p>
+                </div>
+
                 <p className="text-center text-[11px] text-zinc-500 pt-1">
                   New guest?{' '}
                   <button

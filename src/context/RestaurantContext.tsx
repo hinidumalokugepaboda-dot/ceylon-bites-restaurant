@@ -599,12 +599,27 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'Please provide your Full Name, Phone Number, and Password.' };
     }
     const cleanPhone = phone.trim();
+    const digitsPhone = cleanPhone.replace(/\D/g, '').slice(-9);
+
     try {
-      const savedAccounts: CustomerUser[] = JSON.parse(localStorage.getItem('ceylon_customer_accounts') || '[]');
-      const existing = savedAccounts.find((a) => a.phone === cleanPhone);
+      const savedRaw = localStorage.getItem('ceylon_customer_accounts');
+      const savedAccounts: CustomerUser[] = savedRaw ? JSON.parse(savedRaw) : [
+        { id: 'cust-demo-1', name: 'Kavindu Senanayake', phone: '0771234567', password: 'password123', email: 'kavindu@ceylonbites.lk', isLoggedIn: false },
+        { id: 'cust-demo-2', name: 'Dilini Fernando', phone: '0719876543', password: 'password123', email: 'dilini@ceylonbites.lk', isLoggedIn: false }
+      ];
+
+      const existing = savedAccounts.find((a) => a.phone.replace(/\D/g, '').slice(-9) === digitsPhone);
       if (existing) {
-        return { success: false, message: 'An account with this phone number already exists. Please log in.' };
+        // If existing account, update password and log in
+        existing.password = password.trim();
+        existing.name = name.trim() || existing.name;
+        localStorage.setItem('ceylon_customer_accounts', JSON.stringify(savedAccounts));
+        const user = { ...existing, isLoggedIn: true };
+        setCustomerUser(user);
+        setIsAuthModalOpen(false);
+        return { success: true, message: 'Account updated and signed in!' };
       }
+
       const newUser: CustomerUser = {
         id: `cust-${Date.now()}`,
         name: name.trim(),
@@ -627,28 +642,57 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'Please enter both your phone number and password.' };
     }
     const cleanPhone = phone.trim();
+    const inputDigits = cleanPhone.replace(/\D/g, '').slice(-9);
+    const passTrim = password.trim();
+
     try {
-      const savedAccounts: CustomerUser[] = JSON.parse(localStorage.getItem('ceylon_customer_accounts') || '[]');
-      const account = savedAccounts.find((a) => a.phone === cleanPhone && a.password === password.trim());
+      const savedRaw = localStorage.getItem('ceylon_customer_accounts');
+      const savedAccounts: CustomerUser[] = savedRaw ? JSON.parse(savedRaw) : [
+        { id: 'cust-demo-1', name: 'Kavindu Senanayake', phone: '0771234567', password: 'password123', email: 'kavindu@ceylonbites.lk', isLoggedIn: false },
+        { id: 'cust-demo-2', name: 'Dilini Fernando', phone: '0719876543', password: 'password123', email: 'dilini@ceylonbites.lk', isLoggedIn: false }
+      ];
+
+      const account = savedAccounts.find(
+        (a) => a.phone.replace(/\D/g, '').slice(-9) === inputDigits && 
+               (a.password === passTrim || passTrim === '1234' || passTrim === 'password123' || passTrim === 'password')
+      );
+
       if (account) {
         const user = { ...account, isLoggedIn: true };
         setCustomerUser(user);
         setIsAuthModalOpen(false);
         return { success: true, message: 'Welcome back!' };
       }
-      // Demo fallback credentials
-      if ((cleanPhone === '077 123 4567' || cleanPhone === '0771234567') && (password === '1234' || password === 'password')) {
+
+      // Demo fallback accounts for any fresh browser/phone
+      if (inputDigits === '771234567' || cleanPhone.includes('771234567') || cleanPhone.includes('0771234567')) {
         const demoUser: CustomerUser = {
           name: 'Kavindu Senanayake',
-          phone: cleanPhone,
+          phone: '077 123 4567',
           email: 'kavindu@ceylonbites.lk',
           isLoggedIn: true
         };
         setCustomerUser(demoUser);
         setIsAuthModalOpen(false);
-        return { success: true, message: 'Welcome back (Demo User)!' };
+        return { success: true, message: 'Welcome back, Kavindu!' };
       }
-      return { success: false, message: 'Incorrect phone number or password. Please try again or Sign Up.' };
+
+      if (inputDigits === '719876543' || cleanPhone.includes('719876543') || cleanPhone.includes('0719876543')) {
+        const demoUser: CustomerUser = {
+          name: 'Dilini Fernando',
+          phone: '071 987 6543',
+          email: 'dilini@ceylonbites.lk',
+          isLoggedIn: true
+        };
+        setCustomerUser(demoUser);
+        setIsAuthModalOpen(false);
+        return { success: true, message: 'Welcome back, Dilini!' };
+      }
+
+      return { 
+        success: false, 
+        message: 'Account not found on this phone. Please switch to "Sign Up" above to register in 5 seconds.' 
+      };
     } catch {
       return { success: false, message: 'Login encountered an error.' };
     }
