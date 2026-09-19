@@ -32,6 +32,7 @@ export interface CashierAlertData {
   total: number;
   message: string;
   timestamp: number;
+  type?: 'settlement' | 'online_paid';
 }
 
 interface RestaurantContextType {
@@ -185,6 +186,8 @@ interface RestaurantContextType {
   toggleAudio: (enabled?: boolean) => void;
   playKitchenChime: () => void;
   playCashierChime: () => void;
+  testKitchenChime: () => void;
+  testCashierChime: () => void;
   cashierAlert: CashierAlertData | null;
   dismissCashierAlert: () => void;
 
@@ -310,85 +313,198 @@ const INITIAL_ORDER_HISTORY: Order[] = [
   }
 ];
 
-// Web Audio Chime Synthesizer
+// Real-time Event Interface
+export interface RealtimeOrderEvent {
+  type: 'order:new_order' | 'order:status_updated' | 'order:kitchen_new' | 'order:cashier_settlement';
+  order?: Order;
+  orderId?: string;
+  newStatus?: OrderStatus;
+  isOnline?: boolean;
+  paymentMethod?: string;
+  message?: string;
+  eventId?: string;
+  timestamp?: number;
+}
+
+// Global persistent BroadcastChannel singleton
+let globalBroadcastChannel: BroadcastChannel | null = null;
+const getBroadcastChannel = (): BroadcastChannel | null => {
+  if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return null;
+  if (!globalBroadcastChannel) {
+    try {
+      globalBroadcastChannel = new BroadcastChannel('ceylon_bites_realtime_events');
+    } catch {
+      // fallback
+    }
+  }
+  return globalBroadcastChannel;
+};
+
+export const broadcastRealtimeEvent = (event: RealtimeOrderEvent) => {
+  const eventPayload: RealtimeOrderEvent = {
+    ...event,
+    eventId: event.eventId || `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    timestamp: event.timestamp || Date.now()
+  };
+
+  // 1. BroadcastChannel (fast cross-tab event in modern browsers)
+  try {
+    const channel = getBroadcastChannel();
+    if (channel) {
+      channel.postMessage(eventPayload);
+    }
+  } catch (err) {
+    console.warn('BroadcastChannel error:', err);
+  }
+
+  // 2. LocalStorage storage event (universal cross-tab synchronization fallback)
+  try {
+    localStorage.setItem('ceylon_realtime_sync_event', JSON.stringify(eventPayload));
+  } catch (err) {
+    console.warn('LocalStorage broadcast error:', err);
+  }
+};
+
+// Web Audio Chime Synthesizer with Async Resume & Audio Element Fallback
 class WebAudioSynthesizer {
   private ctx: AudioContext | null = null;
 
-  private initCtx() {
-    if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtx) {
-        this.ctx = new AudioCtx();
+  private async ensureCtx(): Promise<AudioContext | null> {
+    if (typeof window === 'undefined') return null;
+    try {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+        }
       }
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+      if (this.ctx && this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      return this.ctx;
+    } catch {
+      return null;
     }
   }
 
   public unlock() {
-    this.initCtx();
+    this.ensureCtx().catch(() => {});
   }
 
-  public playKitchenChime() {
+  public async playKitchenChime() {
     try {
-      this.initCtx();
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
-      const osc1 = this.ctx.createOscillator();
-      const osc2 = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      const ctx = await this.ensureCtx();
+      if (!ctx || ctx.state !== 'running') {
+        this.playFallbackBeep(660, 0.4);
+        return;
+      }
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
 
       osc1.type = 'sine';
       osc2.type = 'triangle';
 
-      osc1.frequency.setValueAtTime(587.33, now); // D5
-      osc1.frequency.setValueAtTime(880.00, now + 0.15); // A5
+      // Rich two-tone kitchen alert (D5 -> A5)
+      osc1.frequency.setValueAtTime(587.33, now);
+      osc1.frequency.setValueAtTime(880.00, now + 0.15);
 
       osc2.frequency.setValueAtTime(587.33, now);
       osc2.frequency.setValueAtTime(880.00, now + 0.15);
 
-      gain.gain.setValueAtTime(0.25, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
 
       osc1.connect(gain);
       osc2.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(ctx.destination);
 
       osc1.start(now);
       osc2.start(now);
-      osc1.stop(now + 0.6);
-      osc2.stop(now + 0.6);
+      osc1.stop(now + 0.65);
+      osc2.stop(now + 0.65);
     } catch {
-      // Audio autoplay policy fallback
+      this.playFallbackBeep(660, 0.4);
     }
   }
 
-  public playCashierChime() {
+  public async playCashierChime() {
     try {
-      this.initCtx();
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      const ctx = await this.ensureCtx();
+      if (!ctx || ctx.state !== 'running') {
+        this.playFallbackBeep(880, 0.4);
+        return;
+      }
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
-      osc.frequency.setValueAtTime(783.99, now + 0.24); // G5
-      osc.frequency.setValueAtTime(1046.50, now + 0.36); // C6
+      // Cheerful 4-tone POS register sequence (C5 -> E5 -> G5 -> C6)
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.12);
+      osc.frequency.setValueAtTime(783.99, now + 0.24);
+      osc.frequency.setValueAtTime(1046.50, now + 0.36);
 
       gain.gain.setValueAtTime(0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.8);
+      osc.stop(now + 0.85);
     } catch {
-      // Audio autoplay policy fallback
+      this.playFallbackBeep(880, 0.4);
     }
+  }
+
+  // Backup simple synthesized audio via Data URI if Web Audio API was blocked
+  private playFallbackBeep(freq = 440, durationSec = 0.2) {
+    if (typeof window === 'undefined') return;
+    try {
+      const sampleRate = 8000;
+      const numSamples = Math.floor(sampleRate * durationSec);
+      const headerLength = 44;
+      const totalLength = headerLength + numSamples;
+      const buffer = new Uint8Array(totalLength);
+
+      // WAV Header
+      const writeString = (offset: number, str: string) => {
+        for (let i = 0; i < str.length; i++) buffer[offset + i] = str.charCodeAt(i);
+      };
+      writeString(0, 'RIFF');
+      const view = new DataView(buffer.buffer);
+      view.setUint32(4, 36 + numSamples, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // Mono
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate, true);
+      view.setUint16(32, 1, true);
+      view.setUint16(34, 8, true); // 8-bit
+      writeString(36, 'data');
+      view.setUint32(40, numSamples, true);
+
+      // Sine wave samples
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const decay = 1 - (i / numSamples);
+        const sample = Math.sin(2 * Math.PI * freq * t) * decay;
+        buffer[headerLength + i] = Math.floor((sample + 1) * 127.5);
+      }
+
+      let binary = '';
+      for (let i = 0; i < buffer.length; i++) {
+        binary += String.fromCharCode(buffer[i]);
+      }
+      const base64 = btoa(binary);
+      const audio = new Audio('data:audio/wav;base64,' + base64);
+      audio.play().catch(() => {});
+    } catch {}
   }
 }
 
@@ -811,20 +927,37 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [isAudioEnabled]);
 
+  const testKitchenChime = useCallback(() => {
+    sfx.unlock();
+    sfx.playKitchenChime();
+  }, []);
+
+  const testCashierChime = useCallback(() => {
+    sfx.unlock();
+    sfx.playCashierChime();
+  }, []);
+
   const [cashierAlert, setCashierAlert] = useState<CashierAlertData | null>(null);
   const dismissCashierAlert = useCallback(() => setCashierAlert(null), []);
 
-  // Real-time cross-tab BroadcastChannel listener
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
-    const channel = new BroadcastChannel('ceylon_bites_realtime_events');
+  const processedEventsRef = useRef<Set<string>>(new Set());
 
-    channel.onmessage = (event) => {
-      const data = event.data;
-      if (!data || !data.type) return;
+  // Centralized real-time event dispatcher
+  const handleIncomingRealtimeEvent = useCallback((data: RealtimeOrderEvent) => {
+    if (!data || !data.type) return;
 
-      if (data.type === 'order:kitchen_new') {
-        const incomingOrder: Order = data.order;
+    if (data.eventId) {
+      if (processedEventsRef.current.has(data.eventId)) return;
+      processedEventsRef.current.add(data.eventId);
+      if (processedEventsRef.current.size > 100) {
+        const first = processedEventsRef.current.values().next().value;
+        if (first) processedEventsRef.current.delete(first);
+      }
+    }
+
+    if (data.type === 'order:new_order' || data.type === 'order:kitchen_new') {
+      const incomingOrder = data.order;
+      if (incomingOrder) {
         setKitchenOrders((prev) => {
           if (prev.some((o) => o.id === incomingOrder.id)) return prev;
           return [incomingOrder, ...prev];
@@ -833,10 +966,31 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (prev.some((o) => o.id === incomingOrder.id)) return prev;
           return [incomingOrder, ...prev];
         });
+
+        // Trigger kitchen notification & chime
         setNewOrderNotification(true);
         playKitchenChime();
-      } else if (data.type === 'order:cashier_settlement') {
-        const incomingOrder: Order = data.order;
+
+        // Trigger cashier alert & chime
+        const isOnline = data.isOnline ?? (incomingOrder.paymentMethod === 'online' || incomingOrder.paymentStatus === 'paid_online');
+        const payLabel = data.paymentMethod || (isOnline ? 'Online Payment (Verified)' : (incomingOrder.paymentMethod === 'card' ? 'Pay at Table: Card (POS)' : 'Pay at Table: Cash'));
+        setCashierAlert({
+          orderId: incomingOrder.id,
+          orderNumber: incomingOrder.orderNumber,
+          tableNumber: incomingOrder.tableNumber,
+          paymentMethod: payLabel,
+          total: incomingOrder.total,
+          message: data.message || (isOnline
+            ? `Table #${incomingOrder.tableNumber} placed new order #${incomingOrder.orderNumber} (Paid Online: Rs. ${incomingOrder.total.toLocaleString()})`
+            : `Table #${incomingOrder.tableNumber} placed order #${incomingOrder.orderNumber} & requested bill settlement via ${payLabel}`),
+          timestamp: Date.now(),
+          type: isOnline ? 'online_paid' : 'settlement'
+        });
+        playCashierChime();
+      }
+    } else if (data.type === 'order:cashier_settlement') {
+      const incomingOrder = data.order;
+      if (incomingOrder) {
         setCashierAlert({
           orderId: incomingOrder.id,
           orderNumber: incomingOrder.orderNumber,
@@ -844,26 +998,89 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           paymentMethod: data.paymentMethod || incomingOrder.paymentMethod,
           total: incomingOrder.total,
           message: data.message || `Table #${incomingOrder.tableNumber} requested bill settlement via ${incomingOrder.paymentMethod}`,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          type: 'settlement'
         });
         playCashierChime();
       }
-    };
-
-    return () => {
-      channel.close();
-    };
+    } else if (data.type === 'order:status_updated') {
+      if (data.orderId && data.newStatus) {
+        const oId = data.orderId;
+        const s = data.newStatus;
+        const updateStatus = (orders: Order[]) =>
+          orders.map((o) => (o.id === oId ? { ...o, status: s } : o));
+        setKitchenOrders(updateStatus);
+        setOrderHistory(updateStatus);
+        if (s === 'ready') {
+          playCashierChime();
+        }
+      }
+    }
   }, [playKitchenChime, playCashierChime]);
 
-  // Unlock audio context on initial user click
+  // Real-time listener: 1) BroadcastChannel + 2) Window Storage Event fallback
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // 1. BroadcastChannel listener
+    const channel = getBroadcastChannel();
+    const handleBroadcast = (event: MessageEvent) => {
+      handleIncomingRealtimeEvent(event.data);
+    };
+    if (channel) {
+      channel.addEventListener('message', handleBroadcast);
+    }
+
+    // 2. Window Storage Event listener for cross-tab sync
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'ceylon_realtime_sync_event' && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue);
+          handleIncomingRealtimeEvent(parsed);
+        } catch {}
+      } else if (event.key === 'ceylon_bites_orders' && event.newValue) {
+        try {
+          const orders: Order[] = JSON.parse(event.newValue);
+          if (Array.isArray(orders)) {
+            setOrderHistory((prev) => {
+              const map = new Map<string, Order>();
+              orders.forEach((o) => map.set(o.id, o));
+              prev.forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+              return Array.from(map.values());
+            });
+            setKitchenOrders((prev) => {
+              const map = new Map<string, Order>();
+              orders.forEach((o) => map.set(o.id, o));
+              prev.forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+              return Array.from(map.values());
+            });
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (channel) {
+        channel.removeEventListener('message', handleBroadcast);
+      }
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [handleIncomingRealtimeEvent]);
+
+  // Unlock audio context on initial user interaction anywhere in the tab
   useEffect(() => {
     const handleFirstInteraction = () => {
       sfx.unlock();
+    };
+    window.addEventListener('click', handleFirstInteraction, { passive: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { passive: true });
+    window.addEventListener('keydown', handleFirstInteraction, { passive: true });
+    return () => {
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
     };
-    window.addEventListener('click', handleFirstInteraction, { once: true });
-    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
   }, []);
 
   // ----------------------------------------------------------------
@@ -1015,8 +1232,30 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
     } catch {
-      // Backend unavailable — use local order history as fallback
+      // Backend unavailable — re-sync directly from localStorage
     }
+
+    try {
+      const saved = localStorage.getItem('ceylon_bites_orders');
+      if (saved) {
+        const localParsed: Order[] = JSON.parse(saved);
+        if (Array.isArray(localParsed) && localParsed.length > 0) {
+          setOrderHistory((prev) => {
+            const map = new Map<string, Order>();
+            localParsed.forEach((o) => map.set(o.id, o));
+            prev.forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+            return Array.from(map.values());
+          });
+          setKitchenOrders((prev) => {
+            const map = new Map<string, Order>();
+            localParsed.forEach((o) => map.set(o.id, o));
+            prev.forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+            return Array.from(map.values());
+          });
+          return;
+        }
+      }
+    } catch {}
 
     // Fallback: show local order history in kitchen
     setKitchenOrders([...orderHistory]);
@@ -1152,18 +1391,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCurrentOrder(updated);
     }
 
-    // Try backend
-    try {
-      fetch('/api/update_order_status.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: orderId,
-          new_status: 'sent_to_kitchen',
-          payment_status: 'confirmed'
-        })
-      }).catch(() => { /* ignore */ });
-    } catch { /* ignore */ }
+    // Broadcast real-time update to all connected tabs
+    broadcastRealtimeEvent({
+      type: 'order:status_updated',
+      orderId,
+      newStatus: 'sent_to_kitchen'
+    });
   };
 
   const rejectReceptionOrder = (orderId: string, reason: string) => {
@@ -1206,13 +1439,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCurrentOrder((prev) => prev ? { ...prev, status: 'rejected_reception', rejectionReason: reason, cancellationReason: reason } : prev);
     }
 
-    try {
-      fetch('/api/update_order_status.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: orderId, new_status: 'rejected_reception', rejection_reason: reason, cancellation_reason: reason })
-      }).catch(() => { /* ignore */ });
-    } catch { /* ignore */ }
+    // Broadcast real-time rejection across tabs
+    broadcastRealtimeEvent({
+      type: 'order:status_updated',
+      orderId,
+      newStatus: 'rejected_reception'
+    });
   };
 
   // ----------------------------------------------------------------
@@ -1262,6 +1494,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Backend not available
     }
     updateLocal();
+    broadcastRealtimeEvent({
+      type: 'order:status_updated',
+      orderId,
+      newStatus: 'accepted_by_kitchen'
+    });
   };
 
   const rejectOrder = async (orderId: string, reason: string) => {
@@ -1301,12 +1538,25 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.success) { updateLocal(); return; }
+        if (json.success) {
+          updateLocal();
+          broadcastRealtimeEvent({
+            type: 'order:status_updated',
+            orderId,
+            newStatus: 'rejected_kitchen'
+          });
+          return;
+        }
       }
     } catch {
       // Backend not available
     }
     updateLocal();
+    broadcastRealtimeEvent({
+      type: 'order:status_updated',
+      orderId,
+      newStatus: 'rejected_kitchen'
+    });
   };
 
   // ----------------------------------------------------------------
@@ -1567,41 +1817,35 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
     setNewOrderNotification(true);
 
-    // Cross-tab real-time event broadcasting
-    try {
-      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-        const channel = new BroadcastChannel('ceylon_bites_realtime_events');
-        // Always push to kitchen
-        channel.postMessage({ type: 'order:kitchen_new', order: newOrder });
+    const payLabel = isOnline
+      ? 'Online Payment (Verified)'
+      : (paymentMethod === 'card' ? 'Pay at Table: Card (POS)' : 'Pay at Table: Cash');
 
-        if (!isOnline) {
-          // Pay at Table: trigger immediate cashier settlement alert & chime
-          const payLabel = paymentMethod === 'card' ? 'Card (POS)' : 'Cash';
-          channel.postMessage({
-            type: 'order:cashier_settlement',
-            order: newOrder,
-            paymentMethod: payLabel,
-            message: `Table #${tableNumber} requested bill settlement via ${payLabel}`
-          });
-        }
-        channel.close();
-      }
-    } catch {}
+    const alertMessage = isOnline
+      ? `Table #${tableNumber} placed new order #${newOrder.orderNumber} (Paid Online: Rs. ${newOrder.total.toLocaleString()})`
+      : `Table #${tableNumber} placed order #${newOrder.orderNumber} & requested bill settlement via ${payLabel}`;
 
-    // If local user is currently on cashier view and customer opted to pay at table:
-    if (!isOnline) {
-      const payLabel = paymentMethod === 'card' ? 'Card (POS)' : 'Cash';
-      setCashierAlert({
-        orderId: newOrder.id,
-        orderNumber: newOrder.orderNumber,
-        tableNumber: newOrder.tableNumber,
-        paymentMethod: payLabel,
-        total: newOrder.total,
-        message: `Table #${tableNumber} requested bill settlement via ${payLabel}`,
-        timestamp: Date.now()
-      });
-      playCashierChime();
-    }
+    // Set local cashier alert for cashier dashboard
+    setCashierAlert({
+      orderId: newOrder.id,
+      orderNumber: newOrder.orderNumber,
+      tableNumber: newOrder.tableNumber,
+      paymentMethod: payLabel,
+      total: newOrder.total,
+      message: alertMessage,
+      timestamp: Date.now(),
+      type: isOnline ? 'online_paid' : 'settlement'
+    });
+    playCashierChime();
+
+    // Broadcast across tabs to Kitchen and Cashier displays
+    broadcastRealtimeEvent({
+      type: 'order:new_order',
+      order: newOrder,
+      isOnline,
+      paymentMethod: payLabel,
+      message: alertMessage
+    });
 
     // Earn loyalty points
     const earnedPoints = Math.round(finalCartTotal * 0.1);
@@ -1699,13 +1943,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           });
         }
 
-        try {
-          fetch('/api/update_order_status.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_id: orderId, new_status: updatedOrder.status })
-          }).catch(() => { /* ignore */ });
-        } catch { /* ignore */ }
+        broadcastRealtimeEvent({
+          type: 'order:status_updated',
+          orderId,
+          newStatus: updatedOrder.status
+        });
       }
       return updated;
     });
@@ -1965,6 +2207,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         toggleAudio,
         playKitchenChime,
         playCashierChime,
+        testKitchenChime,
+        testCashierChime,
         cashierAlert,
         dismissCashierAlert,
         optimizeBudget
