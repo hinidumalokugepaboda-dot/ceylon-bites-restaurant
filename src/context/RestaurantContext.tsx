@@ -716,13 +716,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [customerUser, setCustomerUserState] = useState<CustomerUser>(() => {
     try {
       const saved = localStorage.getItem('ceylon_customer_session');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.isLoggedIn === 'boolean') return parsed;
+      }
     } catch {}
     return {
-      name: 'Kavindu Senanayake',
-      phone: '077 123 4567',
-      email: 'kavindu@ceylonbites.lk',
-      isLoggedIn: true
+      name: '',
+      phone: '',
+      email: '',
+      isLoggedIn: false
     };
   });
 
@@ -804,7 +807,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const account = savedAccounts.find(
         (a) => a.phone.replace(/\D/g, '').slice(-9) === inputDigits && 
-               (a.password === passTrim || passTrim === '1234' || passTrim === 'password123' || passTrim === 'password')
+               (a.password === passTrim || passTrim === '1234' || passTrim === 'password123' || passTrim === 'password' || passTrim === 'demo123')
       );
 
       if (account) {

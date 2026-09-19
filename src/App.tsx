@@ -16,6 +16,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { OrderTracking } from './components/OrderTracking';
 import { StickyBudgetTracker } from './components/StickyBudgetTracker';
 import { StaffLoginModal } from './components/StaffLoginModal';
+import { CustomerLoginGateway } from './components/CustomerLoginGateway';
 // Staff pages
 import { StaffLoginPage } from './components/StaffLoginPage';
 import { KitchenDashboard } from './components/KitchenDashboard';
@@ -23,7 +24,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { ReceptionDashboard } from './components/ReceptionDashboard';
 
 export function App() {
-  const { activeView, setActiveView, staffUser } = useRestaurant();
+  const { activeView, setActiveView, staffUser, customerUser } = useRestaurant();
 
   const handleNavigate = (sectionId: string) => {
     if (sectionId === 'tracking') {
@@ -101,6 +102,13 @@ export function App() {
       return <StaffLoginPage />;
     }
     return <AdminDashboard />;
+  }
+
+  // ----------------------------------------------------------------
+  // Customer Login Gateway: If not authenticated, require login or registration
+  // ----------------------------------------------------------------
+  if (!customerUser.isLoggedIn) {
+    return <CustomerLoginGateway />;
   }
 
   // ----------------------------------------------------------------
