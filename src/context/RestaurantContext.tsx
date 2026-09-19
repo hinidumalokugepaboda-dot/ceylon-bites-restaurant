@@ -323,8 +323,23 @@ export interface RealtimeOrderEvent {
   paymentMethod?: string;
   message?: string;
   eventId?: string;
+  clientId?: string;
   timestamp?: number;
 }
+
+declare global {
+  interface Window {
+    __cb_clientId?: string;
+  }
+}
+
+// Client unique ID to prevent self-echo loops across the network
+const localClientId = typeof window !== 'undefined'
+  ? (window.__cb_clientId ||= `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
+  : 'srv';
+
+// Shared event ID deduplication cache
+const processedEventIds = new Set<string>();
 
 // Global persistent BroadcastChannel singleton
 let globalBroadcastChannel: BroadcastChannel | null = null;
@@ -344,10 +359,15 @@ export const broadcastRealtimeEvent = (event: RealtimeOrderEvent) => {
   const eventPayload: RealtimeOrderEvent = {
     ...event,
     eventId: event.eventId || `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    clientId: event.clientId || localClientId,
     timestamp: event.timestamp || Date.now()
   };
 
-  // 1. BroadcastChannel (fast cross-tab event in modern browsers)
+  if (eventPayload.eventId) {
+    processedEventIds.add(eventPayload.eventId);
+  }
+
+  // 1. BroadcastChannel (instant cross-tab on same browser)
   try {
     const channel = getBroadcastChannel();
     if (channel) {
@@ -357,11 +377,25 @@ export const broadcastRealtimeEvent = (event: RealtimeOrderEvent) => {
     console.warn('BroadcastChannel error:', err);
   }
 
-  // 2. LocalStorage storage event (universal cross-tab synchronization fallback)
+  // 2. LocalStorage storage event (fallback on same browser)
   try {
     localStorage.setItem('ceylon_realtime_sync_event', JSON.stringify(eventPayload));
   } catch (err) {
     console.warn('LocalStorage broadcast error:', err);
+  }
+
+  // 3. Network broadcast to Vite Dev Server (bridges Phone <-> PC <-> Tablet over Wi-Fi/LAN)
+  try {
+    fetch('/api/realtime/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(eventPayload),
+      keepalive: true
+    }).catch((err) => {
+      console.warn('Network broadcast dispatch error:', err);
+    });
+  } catch (err) {
+    console.warn('Network fetch error:', err);
   }
 };
 
@@ -946,12 +980,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleIncomingRealtimeEvent = useCallback((data: RealtimeOrderEvent) => {
     if (!data || !data.type) return;
 
+    // Skip events originated by this exact browser client to avoid self-echoing
+    if (data.clientId && data.clientId === localClientId) return;
+
     if (data.eventId) {
-      if (processedEventsRef.current.has(data.eventId)) return;
-      processedEventsRef.current.add(data.eventId);
-      if (processedEventsRef.current.size > 100) {
-        const first = processedEventsRef.current.values().next().value;
-        if (first) processedEventsRef.current.delete(first);
+      if (processedEventIds.has(data.eventId)) return;
+      processedEventIds.add(data.eventId);
+      if (processedEventIds.size > 200) {
+        const first = processedEventIds.values().next().value;
+        if (first) processedEventIds.delete(first);
       }
     }
 
@@ -1018,11 +1055,58 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [playKitchenChime, playCashierChime]);
 
-  // Real-time listener: 1) BroadcastChannel + 2) Window Storage Event fallback
+  // Real-time listener: 1) SSE Stream + 2) Polling Sync + 3) BroadcastChannel + 4) Window Storage Event
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // 1. BroadcastChannel listener
+    // 1. Server-Sent Events (SSE) network stream for real-time Phone <-> PC communication
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/realtime/events');
+      eventSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed && parsed.type && parsed.type !== 'connected') {
+            handleIncomingRealtimeEvent(parsed);
+          }
+        } catch {}
+      };
+      eventSource.onerror = () => {
+        // EventSource auto-reconnects in browsers
+      };
+    } catch (err) {
+      console.warn('SSE connection failed:', err);
+    }
+
+    // 2. Initial state sync & 4s polling fallback (guarantees no dropped orders)
+    const syncServerOrders = async () => {
+      try {
+        const res = await fetch('/api/realtime/sync', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.orders) && data.orders.length > 0) {
+            setKitchenOrders((prev) => {
+              const map = new Map<string, Order>();
+              data.orders.forEach((o: Order) => map.set(o.id, o));
+              prev.forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+              return Array.from(map.values());
+            });
+            setOrderHistory((prev) => {
+              const map = new Map<string, Order>();
+              data.orders.forEach((o: Order) => map.set(o.id, o));
+              prev.forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+              return Array.from(map.values());
+            });
+          }
+        }
+      } catch {}
+    };
+
+    // Run sync immediately on mount
+    syncServerOrders();
+    const pollInterval = setInterval(syncServerOrders, 4000);
+
+    // 3. BroadcastChannel listener (for instant local multi-tab responsiveness)
     const channel = getBroadcastChannel();
     const handleBroadcast = (event: MessageEvent) => {
       handleIncomingRealtimeEvent(event.data);
@@ -1031,7 +1115,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       channel.addEventListener('message', handleBroadcast);
     }
 
-    // 2. Window Storage Event listener for cross-tab sync
+    // 4. Window Storage Event listener for cross-tab sync
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'ceylon_realtime_sync_event' && event.newValue) {
         try {
@@ -1061,6 +1145,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     window.addEventListener('storage', handleStorage);
 
     return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      clearInterval(pollInterval);
       if (channel) {
         channel.removeEventListener('message', handleBroadcast);
       }
