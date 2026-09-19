@@ -17,28 +17,23 @@ import { useRestaurant } from '../context/RestaurantContext';
 import { StaffRole } from '../types';
 
 export const StaffLoginPage: React.FC = () => {
-  const { loginStaff, setActiveView, staffUser } = useRestaurant();
+  const { loginStaff, setActiveView, staffUser, logoutStaff } = useRestaurant();
 
   const [selectedRole, setSelectedRole] = useState<'admin' | 'kitchen' | 'cashier'>('admin');
-  const [staffCode, setStaffCode] = useState('ADMIN001');
-  const [password, setPassword] = useState('admin123');
+  const [staffCode, setStaffCode] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // If already logged in, redirect to assigned view
-  useEffect(() => {
-    if (staffUser.isLoggedIn) {
-      const nextView = staffUser.role === 'admin' 
-        ? 'admin' 
-        : staffUser.role === 'kitchen' 
-        ? 'kitchen' 
-        : 'cashier';
-      setActiveView(nextView);
-    }
-  }, [staffUser.isLoggedIn, staffUser.role, setActiveView]);
+  // NOTE: Never auto-redirect on mount so visiting /staff always lands on the login screen
 
   const handleRoleSelect = (role: 'admin' | 'kitchen' | 'cashier') => {
+    setSelectedRole(role);
+    setError('');
+  };
+
+  const handleQuickFill = (role: 'admin' | 'kitchen' | 'cashier') => {
     setSelectedRole(role);
     setError('');
     if (role === 'admin') {
@@ -58,7 +53,7 @@ export const StaffLoginPage: React.FC = () => {
     setError('');
 
     if (!staffCode.trim()) {
-      setError('Please enter your Staff ID.');
+      setError('Please enter your Staff ID or Username.');
       return;
     }
     if (!password) {
@@ -68,12 +63,14 @@ export const StaffLoginPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = await loginStaff(staffCode.trim(), password, selectedRole);
+      // Validate credentials — loginStaff checks account and returns the assigned role
+      const result = await loginStaff(staffCode.trim(), password);
       if (result.success) {
-        // Redirection will occur via the useEffect or direct view setter
-        setActiveView(selectedRole);
+        // Automatically decide and navigate to the dashboard matching the user's role
+        const targetView = (result.role as 'admin' | 'kitchen' | 'cashier') || selectedRole;
+        setActiveView(targetView);
       } else {
-        setError(result.message || 'Invalid credentials or role mismatch. Please try again.');
+        setError(result.message || 'Invalid Staff ID or password. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -123,9 +120,37 @@ export const StaffLoginPage: React.FC = () => {
               Restaurant Staff Gateway
             </h1>
             <p className="text-xs sm:text-sm text-gray-400">
-              Select your role access card and sign in with your Staff ID & Password
+              Enter your Staff ID & Password to access your assigned dashboard
             </p>
           </div>
+
+          {/* Active Session Status (if previously signed in) */}
+          {staffUser.isLoggedIn && (
+            <div className="p-3.5 bg-[#18181b] border border-[#c5a059]/30 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+                <span className="text-gray-300">
+                  Active session: <strong className="text-white">{staffUser.name}</strong> ({staffUser.role.toUpperCase()})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveView(staffUser.role === 'admin' ? 'admin' : staffUser.role === 'kitchen' ? 'kitchen' : 'cashier')}
+                  className="px-3 py-1.5 bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#c5a059] border border-[#c5a059]/40 rounded-lg font-bold text-[11px] uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Go to {staffUser.role.toUpperCase()} &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={logoutStaff}
+                  className="px-2.5 py-1.5 text-gray-400 hover:text-white text-[11px] uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Three Distinct Role Selection Access Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -311,24 +336,24 @@ export const StaffLoginPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleRoleSelect('admin')}
-                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-[#c5a059]/40 transition-colors"
+                onClick={() => handleQuickFill('admin')}
+                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-[#c5a059]/40 transition-colors cursor-pointer"
               >
                 <span className="text-[#c5a059] font-bold block">Admin</span>
                 <span className="text-gray-400 font-mono text-[11px]">ADMIN001 / admin123</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleRoleSelect('kitchen')}
-                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-sky-500/40 transition-colors"
+                onClick={() => handleQuickFill('kitchen')}
+                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-sky-500/40 transition-colors cursor-pointer"
               >
                 <span className="text-sky-400 font-bold block">Kitchen</span>
                 <span className="text-gray-400 font-mono text-[11px]">KIT001 / kitchen123</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleRoleSelect('cashier')}
-                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-emerald-500/40 transition-colors"
+                onClick={() => handleQuickFill('cashier')}
+                className="p-2 bg-black/40 border border-white/5 rounded-lg text-left text-xs hover:border-emerald-500/40 transition-colors cursor-pointer"
               >
                 <span className="text-emerald-400 font-bold block">Cashier</span>
                 <span className="text-gray-400 font-mono text-[11px]">CASH001 / cashier123</span>

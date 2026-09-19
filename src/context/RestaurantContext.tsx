@@ -170,7 +170,7 @@ interface RestaurantContextType {
   // Staff Auth & RBAC
   staffUser: StaffUser;
   staffAccounts: StaffAccount[];
-  loginStaff: (staffCode: string, password: string, selectedRole?: 'admin' | 'kitchen' | 'cashier') => Promise<{ success: boolean; message: string }>;
+  loginStaff: (staffCode: string, password: string, selectedRole?: 'admin' | 'kitchen' | 'cashier') => Promise<{ success: boolean; message: string; role?: 'admin' | 'kitchen' | 'cashier' }>;
   loginAsRole: (role: 'admin' | 'reception' | 'kitchen' | 'cashier') => void;
   logoutStaff: () => void;
   addStaffAccount: (staffCode: string, name: string, role: 'kitchen' | 'cashier', password: string) => { success: boolean; message: string };
@@ -1174,8 +1174,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // ----------------------------------------------------------------
   // Staff Login — checks RBAC staff accounts, then backend, then fallback
   // ----------------------------------------------------------------
-  const loginStaff = async (staffCode: string, password: string, selectedRole?: 'admin' | 'kitchen' | 'cashier'): Promise<{ success: boolean; message: string }> => {
-    if (!staffCode.trim()) return { success: false, message: 'Please enter your Staff ID.' };
+  const loginStaff = async (staffCode: string, password: string, selectedRole?: 'admin' | 'kitchen' | 'cashier'): Promise<{ success: boolean; message: string; role?: 'admin' | 'kitchen' | 'cashier' }> => {
+    if (!staffCode.trim()) return { success: false, message: 'Please enter your Staff ID or Username.' };
     if (!password) return { success: false, message: 'Please enter your password.' };
 
     const codeUp = staffCode.trim().toUpperCase();
@@ -1190,15 +1190,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return { success: false, message: `Access denied: Account ${codeUp} is assigned to ${matchedAccount.role.toUpperCase()}, not ${selectedRole.toUpperCase()}.` };
       }
       if (matchedAccount.passwordHash === password) {
+        const assignedRole = (matchedAccount.role === 'cashier' ? 'cashier' : matchedAccount.role) as 'admin' | 'kitchen' | 'cashier';
         const user: StaffUser = {
           staffId: matchedAccount.id,
           staffCode: matchedAccount.staffCode,
           name: matchedAccount.name,
-          role: matchedAccount.role === 'cashier' ? 'cashier' : matchedAccount.role,
+          role: assignedRole,
           isLoggedIn: true
         };
         setStaffUser(user);
-        return { success: true, message: 'Login successful.' };
+        return { success: true, message: 'Login successful.', role: assignedRole };
       }
       return { success: false, message: 'Invalid password. Please try again.' };
     }
@@ -1213,15 +1214,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
+          const assignedRole = (json.role === 'cashier' ? 'cashier' : json.role) as 'admin' | 'kitchen' | 'cashier';
           const user: StaffUser = {
             staffId: String(json.staff_id),
             staffCode: json.staff_code,
             name: json.name,
-            role: (json.role === 'cashier' ? 'cashier' : json.role) as 'admin' | 'reception' | 'kitchen' | 'cashier',
+            role: assignedRole,
             isLoggedIn: true
           };
           setStaffUser(user);
-          return { success: true, message: 'Login successful.' };
+          return { success: true, message: 'Login successful.', role: assignedRole };
         } else {
           return { success: false, message: json.message || 'Invalid credentials.' };
         }
@@ -1233,9 +1235,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // 3. Demo fallback
     const demo = DEMO_STAFF.find((s) => s.staffCode === codeUp);
     if (demo && DEMO_PASSWORDS[codeUp] === password) {
-      const user: StaffUser = { ...demo, isLoggedIn: true };
+      const assignedRole = (demo.role === 'cashier' ? 'cashier' : demo.role) as 'admin' | 'kitchen' | 'cashier';
+      const user: StaffUser = { ...demo, role: assignedRole, isLoggedIn: true };
       setStaffUser(user);
-      return { success: true, message: 'Login successful (demo mode).' };
+      return { success: true, message: 'Login successful (demo mode).', role: assignedRole };
     }
 
     return { success: false, message: 'Invalid Staff ID or password.' };
