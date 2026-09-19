@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Flame,
   ShieldCheck,
@@ -276,7 +276,12 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const allOrders = kitchenOrders.length > 0 ? kitchenOrders : orderHistory;
+  const allOrders = useMemo(() => {
+    const map = new Map<string, Order>();
+    (kitchenOrders || []).forEach((o) => map.set(o.id, o));
+    (orderHistory || []).forEach((o) => { if (!map.has(o.id)) map.set(o.id, o); });
+    return Array.from(map.values()).sort((a, b) => (b.id > a.id ? 1 : -1));
+  }, [kitchenOrders, orderHistory]);
 
   const totalRevenue = allOrders.filter((o) => o.status === 'completed').reduce((sum, o) => sum + o.total, 0);
   const pendingCount = allOrders.filter((o) => o.status === 'pending' || o.status === 'received').length;

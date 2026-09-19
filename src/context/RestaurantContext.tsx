@@ -1853,7 +1853,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     transactionId?: string,
     cardLast4?: string
   ): Promise<Order> => {
-    const orderNum = (1045 + orderHistory.length).toString();
+    // Generate strictly monotonic order number from all known orders across history and kitchen
+    const allKnownNumbers = [...orderHistory, ...kitchenOrders]
+      .map((o) => parseInt(o.orderNumber, 10))
+      .filter((n) => !isNaN(n) && n >= 1000);
+    const highestNum = allKnownNumbers.length > 0 ? Math.max(...allKnownNumbers) : 1054;
+    const orderNum = (highestNum + 1).toString();
+
+    // Globally unique ID with timestamp + randomness to guarantee no collisions between devices
+    const uniqueOrderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const isOnline = paymentMethod === 'online' || paymentStatus === 'paid_online';
     const resolvedPaymentStatus: PaymentStatus = isOnline
       ? 'paid_online'
@@ -1861,7 +1869,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const resolvedTxnId = transactionId || (isOnline ? `TXN-CB-${Math.floor(100000 + Math.random() * 900000)}` : undefined);
 
     const newOrder: Order = {
-      id: `ord-${orderNum}`,
+      id: uniqueOrderId,
       orderNumber: orderNum,
       tableNumber: tableNumber,
       customerName: customerName || customerUser.name || 'Guest Diner',

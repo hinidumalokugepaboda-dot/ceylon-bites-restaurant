@@ -355,7 +355,7 @@ export const ReceptionDashboard: React.FC = () => {
       case 'confirmed': return confirmedOrders;
       case 'cancelled': return cancelledOrders;
       case 'history': return orders;
-      case 'dashboard': return pendingSettlements.length > 0 ? pendingSettlements : orders;
+      case 'dashboard': return orders;
       default: return orders;
     }
   }, [activeSection, pendingSettlements, onlinePaidOrders, newOrders, confirmedOrders, cancelledOrders, orders]);

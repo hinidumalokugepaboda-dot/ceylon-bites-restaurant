@@ -315,10 +315,18 @@ export const KitchenDashboard: React.FC = () => {
     [kitchenVisibleOrders]
   );
 
+  // All active orders in Kitchen Queue (New + Accepted + Preparing + Ready)
+  const activeOrders = useMemo(() =>
+    kitchenVisibleOrders.filter((o) => ['sent_to_kitchen', 'accepted_by_kitchen', 'accepted', 'preparing', 'ready'].includes(o.status)),
+    [kitchenVisibleOrders]
+  );
+
   const visibleOrders = useMemo(() => {
     switch (activeSection) {
-      case 'new':
       case 'dashboard':
+        // Main dashboard shows all active cooking orders in queue (or all orders if none pending)
+        return activeOrders.length > 0 ? activeOrders : kitchenVisibleOrders;
+      case 'new':
         return newOrders;
       case 'preparing':
         return preparingOrders;
@@ -331,11 +339,12 @@ export const KitchenDashboard: React.FC = () => {
       case 'history':
         return kitchenVisibleOrders;
       default:
-        return newOrders;
+        return activeOrders.length > 0 ? activeOrders : kitchenVisibleOrders;
     }
-  }, [activeSection, newOrders, preparingOrders, readyOrders, completedOrders, rejectedOrders, kitchenVisibleOrders]);
+  }, [activeSection, activeOrders, newOrders, preparingOrders, readyOrders, completedOrders, rejectedOrders, kitchenVisibleOrders]);
 
-  const sectionTitle = activeSection === 'dashboard' || activeSection === 'new' ? 'New Orders' :
+  const sectionTitle = activeSection === 'dashboard' ? 'Live Cooking Queue' :
+    activeSection === 'new' ? 'New Orders' :
     activeSection === 'preparing' ? 'Preparing' :
     activeSection === 'ready' ? 'Ready' :
     activeSection === 'completed' ? 'Completed' :
@@ -349,11 +358,11 @@ export const KitchenDashboard: React.FC = () => {
       <aside className="w-[260px] min-h-screen border-r border-slate-200 bg-white flex flex-col shrink-0">
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 border border-amber-200">
-            <Flame className="h-5 w-5 text-amber-700" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 border border-sky-200">
+            <ChefHat className="h-5 w-5 text-sky-700" />
           </div>
           <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-amber-700">Kitchen</div>
+            <div className="text-xs font-bold uppercase tracking-wider text-sky-700">Kitchen Display</div>
             <div className="text-base font-bold text-slate-900">Ceylon Bites</div>
           </div>
         </div>
@@ -363,7 +372,8 @@ export const KitchenDashboard: React.FC = () => {
           {SIDEBAR_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
-            const count = item.id === 'new' ? newOrders.length :
+            const count = item.id === 'dashboard' ? activeOrders.length :
+                          item.id === 'new' ? newOrders.length :
                           item.id === 'preparing' ? preparingOrders.length :
                           item.id === 'ready' ? readyOrders.length :
                           item.id === 'completed' ? completedOrders.length :
