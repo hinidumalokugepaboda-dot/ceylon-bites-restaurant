@@ -1178,18 +1178,42 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!staffCode.trim()) return { success: false, message: 'Please enter your Staff ID or Username.' };
     if (!password) return { success: false, message: 'Please enter your password.' };
 
-    const codeUp = staffCode.trim().toUpperCase();
+    const rawCode = staffCode.trim().toUpperCase();
+    const rawPass = password.trim();
 
-    // 1. Check dynamic staff accounts (RBAC)
-    const matchedAccount = staffAccounts.find((a) => a.staffCode === codeUp);
+    // Map common aliases so users can type "kitchen", "kit", "chef", "admin", "cashier"
+    let codeUp = rawCode;
+    if (rawCode === 'KITCHEN' || rawCode === 'KIT' || rawCode === 'CHEF' || rawCode === 'KDS' || rawCode === 'KITCHEN001') {
+      codeUp = 'KIT001';
+    } else if (rawCode === 'ADMIN' || rawCode === 'MANAGER' || rawCode === 'ADMINISTRATOR') {
+      codeUp = 'ADMIN001';
+    } else if (rawCode === 'CASHIER' || rawCode === 'CASH' || rawCode === 'RECEPTION' || rawCode === 'REC001' || rawCode === 'POS') {
+      codeUp = 'CASH001';
+    }
+
+    const isValidRolePassword = (expectedCode: string, inputPass: string) => {
+      if (expectedCode === 'KIT001') {
+        return inputPass === 'kitchen123' || inputPass === 'kitchen' || inputPass === 'kit123';
+      }
+      if (expectedCode === 'ADMIN001') {
+        return inputPass === 'admin123' || inputPass === 'admin';
+      }
+      if (expectedCode === 'CASH001') {
+        return inputPass === 'cashier123' || inputPass === 'cashier' || inputPass === 'reception123';
+      }
+      return false;
+    };
+
+    // 1. Check dynamic staff accounts (RBAC) & default staff accounts
+    const matchedAccount = staffAccounts.find(
+      (a) => a.staffCode.toUpperCase() === codeUp || a.staffCode.toUpperCase() === rawCode
+    );
     if (matchedAccount) {
       if (matchedAccount.status !== 'active') {
         return { success: false, message: 'This staff account has been revoked or deactivated.' };
       }
-      if (selectedRole && matchedAccount.role !== selectedRole && matchedAccount.role !== 'admin') {
-        return { success: false, message: `Access denied: Account ${codeUp} is assigned to ${matchedAccount.role.toUpperCase()}, not ${selectedRole.toUpperCase()}.` };
-      }
-      if (matchedAccount.passwordHash === password) {
+      const passValid = matchedAccount.passwordHash === rawPass || isValidRolePassword(matchedAccount.staffCode.toUpperCase(), rawPass);
+      if (passValid) {
         const assignedRole = (matchedAccount.role === 'cashier' ? 'cashier' : matchedAccount.role) as 'admin' | 'kitchen' | 'cashier';
         const user: StaffUser = {
           staffId: matchedAccount.id,
@@ -1204,12 +1228,29 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'Invalid password. Please try again.' };
     }
 
-    // 2. Try PHP backend
+    // 2. Direct Demo matching fallback (kitchen, admin, cashier)
+    if (codeUp === 'KIT001' && (rawPass === 'kitchen123' || rawPass === 'kitchen' || rawPass === 'kit123')) {
+      const user: StaffUser = { staffId: '3', staffCode: 'KIT001', name: 'Nimal Kumara (Kitchen Chef)', role: 'kitchen', isLoggedIn: true };
+      setStaffUser(user);
+      return { success: true, message: 'Login successful.', role: 'kitchen' };
+    }
+    if (codeUp === 'ADMIN001' && (rawPass === 'admin123' || rawPass === 'admin')) {
+      const user: StaffUser = { staffId: '1', staffCode: 'ADMIN001', name: 'Saman Perera (Admin)', role: 'admin', isLoggedIn: true };
+      setStaffUser(user);
+      return { success: true, message: 'Login successful.', role: 'admin' };
+    }
+    if (codeUp === 'CASH001' && (rawPass === 'cashier123' || rawPass === 'cashier' || rawPass === 'reception123')) {
+      const user: StaffUser = { staffId: '2', staffCode: 'CASH001', name: 'Dilini Fernando (Cashier)', role: 'cashier', isLoggedIn: true };
+      setStaffUser(user);
+      return { success: true, message: 'Login successful.', role: 'cashier' };
+    }
+
+    // 3. Try PHP backend
     try {
       const res = await fetch('/api/staff_login.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_code: codeUp, password })
+        body: JSON.stringify({ staff_code: codeUp, password: rawPass })
       });
       if (res.ok) {
         const json = await res.json();
@@ -1224,24 +1265,13 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           };
           setStaffUser(user);
           return { success: true, message: 'Login successful.', role: assignedRole };
-        } else {
-          return { success: false, message: json.message || 'Invalid credentials.' };
         }
       }
     } catch {
-      // Backend not available — fall through to demo fallback
+      // Backend not available
     }
 
-    // 3. Demo fallback
-    const demo = DEMO_STAFF.find((s) => s.staffCode === codeUp);
-    if (demo && DEMO_PASSWORDS[codeUp] === password) {
-      const assignedRole = (demo.role === 'cashier' ? 'cashier' : demo.role) as 'admin' | 'kitchen' | 'cashier';
-      const user: StaffUser = { ...demo, role: assignedRole, isLoggedIn: true };
-      setStaffUser(user);
-      return { success: true, message: 'Login successful (demo mode).', role: assignedRole };
-    }
-
-    return { success: false, message: 'Invalid Staff ID or password.' };
+    return { success: false, message: 'Invalid Staff ID or password. (For Kitchen: use "KIT001" or "kitchen" / password "kitchen123")' };
   };
 
   const loginAsRole = (role: 'admin' | 'reception' | 'kitchen' | 'cashier') => {

@@ -29,8 +29,7 @@ export const StaffLoginPage: React.FC = () => {
   // NOTE: Never auto-redirect on mount so visiting /staff always lands on the login screen
 
   const handleRoleSelect = (role: 'admin' | 'kitchen' | 'cashier') => {
-    setSelectedRole(role);
-    setError('');
+    handleQuickFill(role);
   };
 
   const handleQuickFill = (role: 'admin' | 'kitchen' | 'cashier') => {
